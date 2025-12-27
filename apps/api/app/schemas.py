@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -40,4 +41,41 @@ class CitationOut(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     citations: list[CitationOut]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class Verdict(str, Enum):
+    SUPPORTED = "SUPPORTED"
+    WEAK_SUPPORT = "WEAK_SUPPORT"
+    UNSUPPORTED = "UNSUPPORTED"
+    CONTRADICTED = "CONTRADICTED"
+    CONFLICTING = "CONFLICTING"
+
+
+class EvidenceRelation(str, Enum):
+    SUPPORTS = "SUPPORTS"
+    CONTRADICTS = "CONTRADICTS"
+    RELATED = "RELATED"
+
+
+class EvidenceOut(BaseModel):
+    chunk_id: UUID
+    relation: EvidenceRelation
+    snippet: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ClaimOut(BaseModel):
+    claim_text: str
+    verdict: Verdict
+    support_score: float
+    contradiction_score: float
+    evidence: list[EvidenceOut]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QueryVerifiedResponse(BaseModel):
+    answer: str
+    citations: list[CitationOut]
+    claims: list[ClaimOut]
     model_config = ConfigDict(from_attributes=True)

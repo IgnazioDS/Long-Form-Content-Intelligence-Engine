@@ -82,6 +82,13 @@ curl -X POST http://localhost:8000/query \
   -d '{"question": "What is the main thesis?", "source_ids": ["YOUR_SOURCE_UUID"]}'
 ```
 
+Query with verification:
+```bash
+curl -X POST http://localhost:8000/query/verified \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is the main thesis?", "source_ids": ["YOUR_SOURCE_UUID"]}'
+```
+
 Delete a source:
 ```bash
 curl -X DELETE http://localhost:8000/sources/YOUR_SOURCE_UUID
@@ -135,3 +142,5 @@ Outputs are written to:
   setting `RERANK_ENABLED=false`. Fake provider runs deterministically for eval/smoke.
 - Ingestion happens asynchronously via Celery. Source status transitions: `UPLOADED` → `PROCESSING` → `READY` or `FAILED`.
 - If a query cannot be answered with retrieved context, the API returns `insufficient evidence` with suggested follow-ups.
+- `/query` returns answers with citations only; `/query/verified` adds claim-level verdicts and evidence snippets.
+- Verification runs deterministically when `AI_PROVIDER=fake`.
