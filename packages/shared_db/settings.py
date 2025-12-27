@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     redis_url: str = Field("redis://localhost:6379/0", alias="REDIS_URL")
     debug: bool = Field(False, alias="DEBUG")
     max_chunks_per_query: int = Field(8, alias="MAX_CHUNKS_PER_QUERY")
+    rerank_enabled: bool = Field(True, alias="RERANK_ENABLED")
+    rerank_candidates: int = Field(30, alias="RERANK_CANDIDATES")
+    rerank_snippet_chars: int = Field(900, alias="RERANK_SNIPPET_CHARS")
     chunk_char_target: int = Field(5000, alias="CHUNK_CHAR_TARGET")
     chunk_char_overlap: int = Field(800, alias="CHUNK_CHAR_OVERLAP")
 

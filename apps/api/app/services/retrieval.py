@@ -6,7 +6,9 @@ from uuid import UUID
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
+from apps.api.app.services.reranker import rerank_chunks
 from packages.shared_db.models import Chunk, Source
+from packages.shared_db.settings import settings
 
 
 @dataclass
@@ -98,4 +100,4 @@ def retrieve_candidates(
         )
 
     sorted_chunks = sorted(results.values(), key=lambda item: item.score, reverse=True)
-    return sorted_chunks
+    return rerank_chunks(question, sorted_chunks, settings.rerank_snippet_chars)

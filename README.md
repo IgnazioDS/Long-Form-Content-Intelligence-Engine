@@ -22,6 +22,9 @@
 - `DATABASE_URL`
 - `REDIS_URL`
 - `MAX_CHUNKS_PER_QUERY` (default: `8`)
+- `RERANK_ENABLED` (default: `true`)
+- `RERANK_CANDIDATES` (default: `30`)
+- `RERANK_SNIPPET_CHARS` (default: `900`)
 - `CHUNK_CHAR_TARGET` (default: `5000`)
 - `CHUNK_CHAR_OVERLAP` (default: `800`)
 
@@ -117,5 +120,8 @@ Outputs are written to:
 
 ## Notes
 
+- Retrieval uses a lightweight reranker after hybrid search to boost relevance before
+  selecting the final chunks for RAG. It is enabled by default and can be disabled by
+  setting `RERANK_ENABLED=false`. Fake provider runs deterministically for eval/smoke.
 - Ingestion happens asynchronously via Celery. Source status transitions: `UPLOADED` → `PROCESSING` → `READY` or `FAILED`.
 - If a query cannot be answered with retrieved context, the API returns `insufficient evidence` with suggested follow-ups.
