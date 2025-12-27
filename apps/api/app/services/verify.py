@@ -105,7 +105,11 @@ def _align_claims_openai(
     context = "\n\n".join(chunk_blocks)
     system_prompt = (
         "You are verifying claims against evidence. "
-        "Use only the provided chunks and return JSON only."
+        "Use only the provided chunks and return JSON only. "
+        "You MUST ONLY use chunk IDs that appear in the provided chunks. "
+        "Do not invent chunk IDs. "
+        "support_score and contradiction_score MUST be floats in [0,1]. "
+        "If unsure, set both scores to 0.0."
     )
     user_prompt = (
         f"Question: {question}\n\n"
@@ -143,6 +147,9 @@ def _align_claims_openai(
         support_score = _coerce_score(result.get("support_score"))
         contradiction_score = _coerce_score(result.get("contradiction_score"))
         verdict = _compute_verdict(support_score, contradiction_score)
+        model_verdict = _coerce_verdict(result.get("verdict"))
+        if support_score == 0.0 and contradiction_score == 0.0 and model_verdict:
+            verdict = model_verdict
         evidence = _build_evidence(
             chunk_lookup,
             support_ids,
@@ -224,7 +231,8 @@ def _overlap_score(left: set[str], right: set[str]) -> float:
     if not left or not right:
         return 0.0
     overlap = len(left.intersection(right))
-    return overlap / max(1, len(left))
+    union = len(left.union(right))
+    return overlap / max(1, union)
 
 
 def _truncate_text(text: str, limit: int) -> str:
@@ -263,6 +271,16 @@ def _coerce_score(raw: Any) -> float:
     if score > 1:
         return 1.0
     return score
+
+
+def _coerce_verdict(raw: Any) -> Verdict | None:
+    if not isinstance(raw, str):
+        return None
+    normalized = raw.strip().upper()
+    try:
+        return Verdict(normalized)
+    except ValueError:
+        return None
 
 
 def _compute_verdict(support_score: float, contradiction_score: float) -> Verdict:
