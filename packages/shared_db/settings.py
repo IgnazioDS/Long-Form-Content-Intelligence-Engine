@@ -21,4 +21,4 @@ class Settings(BaseSettings):
     chunk_char_overlap: int = Field(800, alias="CHUNK_CHAR_OVERLAP")
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]
