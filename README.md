@@ -36,6 +36,16 @@ make up
 
 The API will be available at `http://localhost:8000`.
 
+## Host Setup (Required for make test/make lint)
+
+With your venv active, run:
+```bash
+python -m pip install -U pip
+python -m pip install -e ".[dev]"
+```
+
+`pip install -e ".[dev]"` provides `pytest`, `ruff`, and `mypy` for `make test` and `make lint`.
+
 ## Local Dev (Host)
 
 ```bash

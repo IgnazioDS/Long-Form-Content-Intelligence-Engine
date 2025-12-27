@@ -1,4 +1,4 @@
-.PHONY: up down test lint smoke eval
+.PHONY: up down test lint smoke eval install-dev check
 
 up:
 	docker compose up --build
@@ -12,6 +12,14 @@ test:
 lint:
 	ruff check .
 	mypy .
+
+install-dev:
+	python3 -m pip install -U pip
+	python3 -m pip install -e ".[dev]"
+
+check:
+	$(MAKE) lint
+	$(MAKE) test
 
 smoke:
 	AI_PROVIDER=fake DEBUG=true python3 scripts/smoke/run_smoke.py
