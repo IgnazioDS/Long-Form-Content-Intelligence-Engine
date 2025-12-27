@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
+from typing import Any, cast
 
 import httpx
 
@@ -10,17 +11,29 @@ BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
 PDF_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "sample.pdf"
 
 
-def wait_for_source(client: httpx.Client, source_id: str, timeout_s: int = 60) -> dict:
+def wait_for_source(
+    client: httpx.Client, source_id: str, timeout_s: int = 60
+) -> dict[str, Any]:
     deadline = time.time() + timeout_s
     while time.time() < deadline:
         response = client.get(f"{BASE_URL}/sources")
         response.raise_for_status()
-        sources = response.json().get("sources", [])
-        match = next((item for item in sources if item.get("id") == source_id), None)
+        payload = cast(dict[str, Any], response.json())
+        sources = payload.get("sources", [])
+        if not isinstance(sources, list):
+            sources = []
+        match = next(
+            (
+                item
+                for item in sources
+                if isinstance(item, dict) and item.get("id") == source_id
+            ),
+            None,
+        )
         if match:
             status = match.get("status")
             if status == "READY":
-                return match
+                return cast(dict[str, Any], match)
             if status == "FAILED":
                 raise RuntimeError(f"Source failed ingestion: {match}")
         time.sleep(2)

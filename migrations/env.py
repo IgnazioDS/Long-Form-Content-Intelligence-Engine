@@ -5,8 +5,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
-from packages.shared_db.base import Base
 from packages.shared_db import models  # noqa: F401
+from packages.shared_db.base import Base
 from packages.shared_db.settings import settings
 
 config = context.config

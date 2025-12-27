@@ -4,7 +4,8 @@ import hashlib
 import json
 import random
 import re
-from typing import Iterable
+from collections.abc import Iterable
+from typing import Any, cast
 
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_random_exponential
@@ -107,8 +108,8 @@ def chat(
     client = get_client()
     response = client.chat.completions.create(
         model=settings.openai_model,
-        messages=messages,
+        messages=cast(Any, messages),
         temperature=temperature,
-        response_format=response_format,
+        response_format=cast(Any, response_format),
     )
     return response.choices[0].message.content or ""

@@ -42,8 +42,12 @@ def build_page_ranges(pages: list[tuple[int, str]]) -> tuple[str, list[tuple[int
     return full_text, ranges
 
 
-def get_page_span(ranges: list[tuple[int, int, int]], start: int, end: int) -> tuple[int | None, int | None]:
-    hits = [page_num for page_num, r_start, r_end in ranges if r_start < end and r_end > start]
+def get_page_span(
+    ranges: list[tuple[int, int, int]], start: int, end: int
+) -> tuple[int | None, int | None]:
+    hits = [
+        page_num for page_num, r_start, r_end in ranges if r_start < end and r_end > start
+    ]
     if not hits:
         return None, None
     return hits[0], hits[-1]

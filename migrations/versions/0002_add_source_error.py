@@ -5,8 +5,8 @@ Revises: 0001_init
 Create Date: 2024-01-02 00:00:00
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0002_add_source_error"

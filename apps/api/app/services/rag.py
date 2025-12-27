@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from apps.api.app.services.retrieval import RetrievedChunk
@@ -47,7 +47,8 @@ def _call_llm(question: str, context: str, allowed_ids: list[str], strict: bool)
     guardrail = (
         "Only use the provided context. "
         "Cite chunk IDs for each major claim. "
-        "If evidence is insufficient, reply with answer='insufficient evidence' and include follow_ups."
+        "If evidence is insufficient, reply with answer='insufficient evidence' "
+        "and include follow_ups."
     )
     if strict:
         guardrail += " You MUST use only these chunk IDs: " + allowed_str
@@ -56,7 +57,8 @@ def _call_llm(question: str, context: str, allowed_ids: list[str], strict: bool)
         f"Question: {question}\n\n"
         f"Context:\n{context}\n\n"
         "Return a JSON object with keys: "
-        "answer (string), citations (array of chunk_id strings), follow_ups (array of strings)."
+        "answer (string), citations (array of chunk_id strings), "
+        "follow_ups (array of strings)."
     )
     content = chat(
         messages=[
@@ -67,7 +69,10 @@ def _call_llm(question: str, context: str, allowed_ids: list[str], strict: bool)
         response_format={"type": "json_object"},
     )
     try:
-        return json.loads(content)
+        payload = json.loads(content)
+        if isinstance(payload, dict):
+            return cast(dict[str, Any], payload)
+        return {}
     except json.JSONDecodeError:
         return {}
 
@@ -92,7 +97,10 @@ def generate_answer(
 
         if answer.lower().startswith("insufficient evidence"):
             if not followups:
-                followups = "Suggested follow-ups: ask for a narrower question or specific sections."
+                followups = (
+                    "Suggested follow-ups: ask for a narrower question "
+                    "or specific sections."
+                )
             answer = f"insufficient evidence. {followups}"
             return answer, []
 
