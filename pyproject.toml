@@ -1,0 +1,54 @@
+[project]
+name = "long-form-content-intelligence-engine"
+version = "0.1.0"
+description = "MVP Long-Form Content Intelligence Engine"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.27",
+  "sqlalchemy>=2.0",
+  "psycopg[binary]>=3.1",
+  "alembic>=1.13",
+  "pydantic>=2.6",
+  "pydantic-settings>=2.2",
+  "python-multipart>=0.0.9",
+  "redis>=5.0",
+  "celery>=5.3",
+  "pymupdf>=1.23",
+  "openai>=1.14",
+  "pgvector>=0.2.5",
+ "tenacity>=8.2",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N"]
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[project.optional-dependencies]
+ dev = [
+  "pytest>=8.0",
+  "httpx>=0.26",
+  "mypy>=1.8",
+  "ruff>=0.4",
+ ]

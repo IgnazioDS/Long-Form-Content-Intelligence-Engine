@@ -1,0 +1,72 @@
+from __future__ import annotations
+
+import logging
+import uuid
+
+import fitz
+from celery import shared_task
+from sqlalchemy import func
+
+from packages.shared_db.chunking import chunk_pages, normalize_text
+from packages.shared_db.models import Chunk, Source, SourceStatus
+from packages.shared_db.openai_client import embed_texts
+from packages.shared_db.session import SessionLocal
+from packages.shared_db.settings import settings
+from packages.shared_db.storage import source_path
+
+logger = logging.getLogger(__name__)
+
+
+@shared_task(name="services.ingest.tasks.ingest_source")
+def ingest_source(source_id: str) -> None:
+    session = SessionLocal()
+    source: Source | None = None
+    try:
+        source_uuid = uuid.UUID(source_id)
+        source = session.get(Source, source_uuid)
+        if source is None:
+            logger.error("Source not found: %s", source_id)
+            return
+
+        source.status = SourceStatus.PROCESSING.value
+        session.commit()
+
+        path = source_path(source_id)
+        pages: list[tuple[int, str]] = []
+        with fitz.open(str(path)) as doc:
+            for page_index, page in enumerate(doc, start=1):
+                text = normalize_text(page.get_text())
+                if text:
+                    pages.append((page_index, text))
+
+        chunks = chunk_pages(pages, settings.chunk_char_target, settings.chunk_char_overlap)
+        if not chunks:
+            raise ValueError("No text extracted from PDF")
+
+        embeddings = embed_texts([chunk.text for chunk in chunks])
+
+        session.query(Chunk).filter(Chunk.source_id == source.id).delete()
+        for chunk, embedding in zip(chunks, embeddings, strict=False):
+            session.add(
+                Chunk(
+                    source_id=source.id,
+                    chunk_index=chunk.chunk_index,
+                    page_start=chunk.page_start,
+                    page_end=chunk.page_end,
+                    section_path=[],
+                    text=chunk.text,
+                    tsv=func.to_tsvector("english", chunk.text),
+                    embedding=embedding,
+                )
+            )
+
+        source.status = SourceStatus.READY.value
+        session.commit()
+        logger.info("Ingestion complete for source %s", source_id)
+    except Exception:
+        logger.exception("Failed ingestion for source %s", source_id)
+        if source is not None:
+            source.status = SourceStatus.FAILED.value
+            session.commit()
+    finally:
+        session.close()
