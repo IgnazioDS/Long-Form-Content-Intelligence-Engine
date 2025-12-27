@@ -1,4 +1,4 @@
-.PHONY: up down test lint smoke
+.PHONY: up down test lint smoke eval
 
 up:
 	docker compose up --build
@@ -15,3 +15,6 @@ lint:
 
 smoke:
 	AI_PROVIDER=fake DEBUG=true python3 scripts/smoke/run_smoke.py
+
+eval:
+	python3 scripts/eval/run_eval.py

@@ -98,6 +98,23 @@ source .venv/bin/activate
 make smoke
 ```
 
+## Evaluation
+
+Recommended env: `AI_PROVIDER=fake` and `DEBUG=true` (needed for citation validation).
+
+1. Start the stack:
+   ```bash
+   AI_PROVIDER=fake DEBUG=true docker compose up --build
+   ```
+2. Run the eval harness:
+   ```bash
+   make eval
+   ```
+
+Outputs are written to:
+- `scripts/eval/out/eval_results.json`
+- `scripts/eval/out/eval_report.md`
+
 ## Notes
 
 - Ingestion happens asynchronously via Celery. Source status transitions: `UPLOADED` → `PROCESSING` → `READY` or `FAILED`.

@@ -1,73 +1,40 @@
 from __future__ import annotations
 
-import os
-import time
+import sys
 from pathlib import Path
-from typing import Any, cast
 
 import httpx
 
-BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
-PDF_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "sample.pdf"
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-
-def wait_for_source(
-    client: httpx.Client, source_id: str, timeout_s: int = 60
-) -> dict[str, Any]:
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        response = client.get(f"{BASE_URL}/sources")
-        response.raise_for_status()
-        payload = cast(dict[str, Any], response.json())
-        sources = payload.get("sources", [])
-        if not isinstance(sources, list):
-            sources = []
-        match = next(
-            (
-                item
-                for item in sources
-                if isinstance(item, dict) and item.get("id") == source_id
-            ),
-            None,
-        )
-        if match:
-            status = match.get("status")
-            if status == "READY":
-                return cast(dict[str, Any], match)
-            if status == "FAILED":
-                raise RuntimeError(f"Source failed ingestion: {match}")
-        time.sleep(2)
-    raise TimeoutError("Timed out waiting for source to become READY")
+from _common.api_client import (  # noqa: E402
+    fixture_pdf_path,
+    get_base_url,
+    get_debug_chunk_ids,
+    upload_source,
+    wait_for_source,
+)
 
 
 def main() -> None:
-    if not PDF_PATH.exists():
-        raise FileNotFoundError(f"Missing fixture: {PDF_PATH}")
+    pdf_path = fixture_pdf_path()
+    base_url = get_base_url()
 
     with httpx.Client(timeout=30.0) as client:
-        health = client.get(f"{BASE_URL}/health")
+        health = client.get(f"{base_url}/health")
         health.raise_for_status()
 
-        with PDF_PATH.open("rb") as handle:
-            files = {"file": (PDF_PATH.name, handle, "application/pdf")}
-            data = {"title": "Smoke Test Fixture"}
-            response = client.post(f"{BASE_URL}/sources/upload", files=files, data=data)
-            response.raise_for_status()
-            payload = response.json()
-            source_id = payload["id"]
+        payload = upload_source(client, base_url, pdf_path, title="Smoke Test Fixture")
+        source_id = payload["id"]
 
-        wait_for_source(client, source_id)
+        wait_for_source(client, base_url, source_id)
 
-        debug_response = client.get(f"{BASE_URL}/debug/sources/{source_id}/chunks")
-        if debug_response.status_code == 404:
-            raise RuntimeError("DEBUG=true is required to access debug endpoints")
-        debug_response.raise_for_status()
-        chunk_ids = debug_response.json().get("chunk_ids", [])
+        chunk_ids = get_debug_chunk_ids(client, base_url, source_id)
         if not chunk_ids:
             raise RuntimeError("No chunks found for source")
 
         query_payload = {"question": "What is this document about?", "source_ids": [source_id]}
-        query_response = client.post(f"{BASE_URL}/query", json=query_payload)
+        query_response = client.post(f"{base_url}/query", json=query_payload)
         query_response.raise_for_status()
         query_data = query_response.json()
 

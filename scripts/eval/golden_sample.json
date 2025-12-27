@@ -1,0 +1,75 @@
+[
+  {
+    "id": "golden-001",
+    "question": "What is the document titled?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["Long-Form Content Intelligence Engine"]
+  },
+  {
+    "id": "golden-002",
+    "question": "Is this described as a sample document?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["sample document"]
+  },
+  {
+    "id": "golden-003",
+    "question": "What is the document used for?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["smoke testing"]
+  },
+  {
+    "id": "golden-004",
+    "question": "What does it describe about retrieval?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["retrieval"]
+  },
+  {
+    "id": "golden-005",
+    "question": "Does the text mention citations?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["citations"]
+  },
+  {
+    "id": "golden-006",
+    "question": "Does it mention deterministic behavior?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["deterministic behavior"]
+  },
+  {
+    "id": "golden-007",
+    "question": "Summarize the document in one sentence.",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["Long-Form", "sample document"]
+  },
+  {
+    "id": "golden-008",
+    "question": "Which engine is referenced?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["Content Intelligence Engine"]
+  },
+  {
+    "id": "golden-009",
+    "question": "What is the document about?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["Long-Form Content Intelligence Engine"]
+  },
+  {
+    "id": "golden-010",
+    "question": "Does the document describe citations and retrieval?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["citations", "retrieval"]
+  },
+  {
+    "id": "golden-011",
+    "question": "What is the document used for testing?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["smoke testing"],
+    "must_not_include_keywords": ["OpenAI"]
+  },
+  {
+    "id": "golden-012",
+    "question": "What behavior is described as deterministic?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["deterministic behavior"]
+  }
+]

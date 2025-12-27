@@ -7,3 +7,4 @@ __pycache__/
 .venv/
 storage/
 *.egg-info/
+scripts/eval/out/
