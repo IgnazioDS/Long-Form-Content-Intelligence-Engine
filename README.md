@@ -40,8 +40,8 @@ The API will be available at `http://localhost:8000`.
 
 With your venv active, run:
 ```bash
-python -m pip install -U pip
-python -m pip install -e ".[dev]"
+python3 -m pip install -U pip
+python3 -m pip install -e ".[dev]"
 ```
 
 `pip install -e ".[dev]"` provides `pytest`, `ruff`, and `mypy` for `make test` and `make lint`.
