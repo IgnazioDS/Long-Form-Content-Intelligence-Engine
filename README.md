@@ -17,6 +17,8 @@
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (default: `gpt-4o-mini`)
 - `OPENAI_EMBED_MODEL` (default: `text-embedding-3-small`)
+- `AI_PROVIDER` (`openai` or `fake`, default: `openai`)
+- `DEBUG` (default: `false`)
 - `DATABASE_URL`
 - `REDIS_URL`
 - `MAX_CHUNKS_PER_QUERY` (default: `8`)
@@ -30,6 +32,17 @@ make up
 ```
 
 The API will be available at `http://localhost:8000`.
+
+## Local Dev (Host)
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e ".[dev]"
+
+make test
+make lint
+```
 
 ## Example curl Commands
 
@@ -71,6 +84,18 @@ make test
 Lint and type-check:
 ```bash
 make lint
+```
+
+## Docker Smoke Test
+
+```bash
+AI_PROVIDER=fake DEBUG=true docker compose up --build
+```
+
+In another terminal (with the venv active):
+```bash
+source .venv/bin/activate
+make smoke
 ```
 
 ## Notes
