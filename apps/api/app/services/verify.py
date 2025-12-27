@@ -70,13 +70,13 @@ def _extract_claims(question: str, answer: str) -> list[str]:
     claims_raw = payload.get("claims") if isinstance(payload, dict) else None
     if not isinstance(claims_raw, list):
         return []
-    claims: list[str] = []
+    extracted_claims: list[str] = []
     for item in claims_raw:
         if isinstance(item, dict):
             text = str(item.get("claim_text", "")).strip()
             if text:
-                claims.append(text)
-    return claims
+                extracted_claims.append(text)
+    return extracted_claims
 
 
 def _align_claims_openai(
