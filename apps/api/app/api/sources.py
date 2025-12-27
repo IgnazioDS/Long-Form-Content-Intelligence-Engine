@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 
 from apps.api.app.deps import get_session
 from apps.api.app.schemas import SourceListOut, SourceOut
+from packages.shared_db.models import Chunk, Source, SourceStatus
+from packages.shared_db.settings import settings
 from packages.shared_db.storage import source_path
-from packages.shared_db.models import Source, SourceStatus
 from services.ingest.worker import celery_app
 
 router = APIRouter()
@@ -62,3 +63,18 @@ def delete_source(source_id: UUID, session: Session = Depends(get_session)) -> S
     except OSError:
         pass
     return SourceOut.model_validate(source)
+
+
+@router.get("/debug/sources/{source_id}/chunks")
+def debug_list_chunks(
+    source_id: UUID, session: Session = Depends(get_session)
+) -> dict[str, object]:
+    if not settings.debug:
+        raise HTTPException(status_code=404, detail="Not found")
+    rows = (
+        session.query(Chunk.id)
+        .filter(Chunk.source_id == source_id)
+        .order_by(Chunk.chunk_index)
+        .all()
+    )
+    return {"source_id": str(source_id), "chunk_ids": [str(row.id) for row in rows]}

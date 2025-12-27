@@ -17,7 +17,7 @@ dependencies = [
   "pymupdf>=1.23",
   "openai>=1.14",
   "pgvector>=0.2.5",
- "tenacity>=8.2",
+  "tenacity>=8.2",
 ]
 
 [build-system]
@@ -46,9 +46,9 @@ addopts = "-q"
 testpaths = ["tests"]
 
 [project.optional-dependencies]
- dev = [
+dev = [
   "pytest>=8.0",
   "httpx>=0.26",
   "mypy>=1.8",
   "ruff>=0.4",
- ]
+]

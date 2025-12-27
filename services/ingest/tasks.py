@@ -29,6 +29,7 @@ def ingest_source(source_id: str) -> None:
             return
 
         source.status = SourceStatus.PROCESSING.value
+        source.error = None
         session.commit()
 
         path = source_path(source_id)
@@ -45,7 +46,9 @@ def ingest_source(source_id: str) -> None:
 
         embeddings = embed_texts([chunk.text for chunk in chunks])
 
-        session.query(Chunk).filter(Chunk.source_id == source.id).delete()
+        session.query(Chunk).filter(Chunk.source_id == source.id).delete(
+            synchronize_session=False
+        )
         for chunk, embedding in zip(chunks, embeddings, strict=False):
             session.add(
                 Chunk(
@@ -61,12 +64,16 @@ def ingest_source(source_id: str) -> None:
             )
 
         source.status = SourceStatus.READY.value
+        source.error = None
         session.commit()
         logger.info("Ingestion complete for source %s", source_id)
-    except Exception:
+    except Exception as exc:
         logger.exception("Failed ingestion for source %s", source_id)
+        session.rollback()
         if source is not None:
+            error_text = str(exc).strip() or exc.__class__.__name__
             source.status = SourceStatus.FAILED.value
+            source.error = error_text[:500]
             session.commit()
     finally:
         session.close()

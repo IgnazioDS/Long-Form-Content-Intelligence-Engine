@@ -1,10 +1,12 @@
 import uuid
 
+from pytest import MonkeyPatch
+
 from apps.api.app.services import rag
 from apps.api.app.services.retrieval import RetrievedChunk
 
 
-def test_generate_answer_returns_citations(monkeypatch) -> None:
+def test_generate_answer_returns_citations(monkeypatch: MonkeyPatch) -> None:
     chunk_id = uuid.uuid4()
     chunks = [
         RetrievedChunk(
@@ -18,10 +20,11 @@ def test_generate_answer_returns_citations(monkeypatch) -> None:
         )
     ]
 
-    def fake_call_llm(client, question, context, allowed_ids, strict):
+    def fake_call_llm(
+        question: str, context: str, allowed_ids: list[str], strict: bool
+    ) -> dict[str, object]:
         return {"answer": "Answer", "citations": [str(chunk_id)], "follow_ups": []}
 
-    monkeypatch.setattr(rag, "get_client", lambda: object())
     monkeypatch.setattr(rag, "_call_llm", fake_call_llm)
 
     answer, citations = rag.generate_answer("Question", chunks)

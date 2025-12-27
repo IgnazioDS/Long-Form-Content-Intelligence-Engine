@@ -1,4 +1,4 @@
-.PHONY: up down test lint
+.PHONY: up down test lint smoke
 
 up:
 	docker compose up --build
@@ -12,3 +12,6 @@ test:
 lint:
 	ruff check .
 	mypy .
+
+smoke:
+	AI_PROVIDER=fake DEBUG=true python3 scripts/smoke/run_smoke.py

@@ -11,18 +11,33 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lfcie"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   api:
     build: .
     env_file: .env
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      DEBUG: ${DEBUG:-false}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "8000:8000"
     volumes:
@@ -34,9 +49,14 @@ services:
   worker:
     build: .
     env_file: .env
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      DEBUG: ${DEBUG:-false}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - .:/app
       - storage_data:/app/storage

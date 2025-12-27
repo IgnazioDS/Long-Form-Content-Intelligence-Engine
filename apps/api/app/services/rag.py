@@ -4,11 +4,8 @@ import json
 from typing import Any
 from uuid import UUID
 
-from openai import OpenAI
-
 from apps.api.app.services.retrieval import RetrievedChunk
-from packages.shared_db.openai_client import get_client
-from packages.shared_db.settings import settings
+from packages.shared_db.openai_client import chat
 
 
 def build_context(chunks: list[RetrievedChunk]) -> str:
@@ -45,7 +42,7 @@ def _format_followups(followups: Any) -> str | None:
     return "Suggested follow-ups: " + "; ".join(cleaned)
 
 
-def _call_llm(client: OpenAI, question: str, context: str, allowed_ids: list[str], strict: bool) -> dict:
+def _call_llm(question: str, context: str, allowed_ids: list[str], strict: bool) -> dict:
     allowed_str = ", ".join(allowed_ids)
     guardrail = (
         "Only use the provided context. "
@@ -61,8 +58,7 @@ def _call_llm(client: OpenAI, question: str, context: str, allowed_ids: list[str
         "Return a JSON object with keys: "
         "answer (string), citations (array of chunk_id strings), follow_ups (array of strings)."
     )
-    response = client.chat.completions.create(
-        model=settings.openai_model,
+    content = chat(
         messages=[
             {"role": "system", "content": guardrail},
             {"role": "user", "content": user_prompt},
@@ -70,7 +66,6 @@ def _call_llm(client: OpenAI, question: str, context: str, allowed_ids: list[str
         temperature=0,
         response_format={"type": "json_object"},
     )
-    content = response.choices[0].message.content or "{}"
     try:
         return json.loads(content)
     except json.JSONDecodeError:
@@ -85,19 +80,15 @@ def generate_answer(
 
     allowed_ids = [str(chunk.chunk_id) for chunk in chunks]
     context = build_context(chunks)
-    client = get_client()
+    suggested_ids = [UUID(cid) for cid in allowed_ids]
 
     for attempt in range(2):
-        payload = _call_llm(client, question, context, allowed_ids, strict=attempt == 1)
+        payload = _call_llm(question, context, allowed_ids, strict=attempt == 1)
         if not payload:
             continue
         answer = str(payload.get("answer", "")).strip()
         citation_ids = _parse_citation_ids(payload)
         followups = _format_followups(payload.get("follow_ups"))
-
-        invalid = [cid for cid in citation_ids if cid not in allowed_ids]
-        if invalid:
-            continue
 
         if answer.lower().startswith("insufficient evidence"):
             if not followups:
@@ -105,12 +96,18 @@ def generate_answer(
             answer = f"insufficient evidence. {followups}"
             return answer, []
 
-        if not citation_ids:
-            return "insufficient evidence. Suggested follow-ups: clarify the question.", []
+        invalid = [cid for cid in citation_ids if cid not in allowed_ids]
+        if invalid or not citation_ids:
+            if attempt == 0:
+                continue
+            return (
+                "insufficient evidence. Suggested follow-ups: clarify the question.",
+                suggested_ids,
+            )
 
         return answer, [UUID(cid) for cid in citation_ids]
 
-    return "insufficient evidence. Suggested follow-ups: narrow the question.", []
+    return "insufficient evidence. Suggested follow-ups: narrow the question.", suggested_ids
 
 
 def build_snippet(text: str, max_len: int = 280) -> str:
