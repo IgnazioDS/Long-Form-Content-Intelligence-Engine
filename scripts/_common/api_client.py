@@ -11,7 +11,9 @@ DEFAULT_BASE_URL = "http://localhost:8000"
 
 
 def get_base_url(override: str | None = None) -> str:
-    base_url = override or os.getenv("API_BASE_URL", DEFAULT_BASE_URL)
+    if override:
+        return override.rstrip("/")
+    base_url = os.getenv("API_BASE_URL") or DEFAULT_BASE_URL
     return base_url.rstrip("/")
 
 
