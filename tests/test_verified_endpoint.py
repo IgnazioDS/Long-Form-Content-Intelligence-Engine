@@ -72,6 +72,7 @@ def test_query_verified_returns_claims(monkeypatch: MonkeyPatch) -> None:
         question: str,
         query_embedding: list[float],
         source_ids: list[uuid.UUID] | None,
+        rerank: bool | None = None,
     ) -> list[RetrievedChunk]:
         return chunks
 

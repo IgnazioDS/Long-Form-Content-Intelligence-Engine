@@ -1,5 +1,6 @@
 {
   "fixture": "conflicts.pdf",
+  "profile": "conflicts",
   "cases": [
     {
       "id": "conflicts-001",

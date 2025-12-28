@@ -1,6 +1,6 @@
+import redis
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-import redis
 from sqlalchemy import text
 
 from packages.shared_db.session import SessionLocal

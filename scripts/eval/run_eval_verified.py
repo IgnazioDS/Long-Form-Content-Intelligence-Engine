@@ -85,15 +85,18 @@ def get_env_int(name: str, default: int) -> int:
         return default
 
 
-def load_dataset(path: Path) -> tuple[list[dict[str, Any]], str | None]:
+def load_dataset(path: Path) -> tuple[list[dict[str, Any]], str | None, str | None]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(payload, list):
         cases_payload = payload
         fixture_name: str | None = None
+        profile_name: str | None = None
     elif isinstance(payload, dict):
         cases_payload = payload.get("cases", [])
         fixture_raw = payload.get("fixture")
+        profile_raw = payload.get("profile")
         fixture_name = str(fixture_raw).strip() if fixture_raw else None
+        profile_name = str(profile_raw).strip() if profile_raw else None
     else:
         raise ValueError("Eval dataset must be a JSON list or object")
 
@@ -108,7 +111,7 @@ def load_dataset(path: Path) -> tuple[list[dict[str, Any]], str | None]:
             if key not in item:
                 raise ValueError(f"Missing required field: {key}")
         cases.append(item)
-    return cases, fixture_name
+    return cases, fixture_name, profile_name
 
 
 def load_thresholds(path: Path, section: str) -> dict[str, Any]:
@@ -130,6 +133,17 @@ def resolve_fixture_path(fixture_name: str | None) -> Path:
             raise FileNotFoundError(f"Fixture not found: {candidate}")
         return candidate
     return fixture_pdf_path()
+
+
+def is_conflicts_dataset(
+    dataset_path: Path, fixture_name: str | None, profile_name: str | None
+) -> bool:
+    profile = (profile_name or "").strip().lower()
+    if profile in {"conflicts", "eval_verified_conflicts"}:
+        return True
+    if fixture_name and fixture_name.strip().lower() == "conflicts.pdf":
+        return True
+    return "conflicts" in dataset_path.stem.lower()
 
 
 def get_git_commit() -> str | None:
@@ -207,7 +221,7 @@ def post_with_retries(
         except httpx.TimeoutException as exc:
             last_error = exc
         else:
-            if response.status_code >= 500:
+            if response.status_code >= 500 or response.status_code == 429:
                 if attempt == max_attempts:
                     response.raise_for_status()
                 else:
@@ -386,7 +400,8 @@ def evaluate_case(
             if relation not in ALLOWED_RELATIONS:
                 evidence_valid = False
                 failures.append(
-                    f"invalid_evidence_relation(index={idx}, evidence={ev_idx}, relation={relation})"
+                    "invalid_evidence_relation("
+                    f"index={idx}, evidence={ev_idx}, relation={relation})"
                 )
             if not evidence_valid:
                 invalid_evidence_ids += 1
@@ -428,7 +443,8 @@ def evaluate_case(
     if max_unsupported_rate is not None and claims_count:
         if unsupported_rate > max_unsupported_rate:
             failures.append(
-                f"unsupported_rate_exceeded(threshold={max_unsupported_rate}, got={unsupported_rate})"
+                "unsupported_rate_exceeded("
+                f"threshold={max_unsupported_rate}, got={unsupported_rate})"
             )
 
     if unknown_verdicts:
@@ -564,11 +580,18 @@ def main() -> None:
 
     base_url = get_base_url(args.base_url)
 
-    cases, dataset_fixture = load_dataset(dataset_path)
+    cases, dataset_fixture, dataset_profile = load_dataset(dataset_path)
     fixture_name = args.fixture or dataset_fixture
+    if not fixture_name and (dataset_profile or "").strip().lower() in {
+        "conflicts",
+        "eval_verified_conflicts",
+    }:
+        fixture_name = "conflicts.pdf"
     pdf_path = resolve_fixture_path(fixture_name)
 
-    is_conflicts_fixture = pdf_path.name == "conflicts.pdf"
+    is_conflicts_fixture = is_conflicts_dataset(
+        dataset_path, fixture_name, dataset_profile
+    )
     thresholds_section = (
         "eval_verified_conflicts" if is_conflicts_fixture else "eval_verified"
     )
@@ -709,6 +732,7 @@ def main() -> None:
         "source_id": source_id,
         "dataset": str(dataset_path),
         "fixture": pdf_path.name,
+        "profile": dataset_profile,
     }
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)

@@ -174,7 +174,7 @@ def post_with_retries(
         except httpx.TimeoutException as exc:
             last_error = exc
         else:
-            if response.status_code >= 500:
+            if response.status_code >= 500 or response.status_code == 429:
                 if attempt == max_attempts:
                     response.raise_for_status()
                 else:

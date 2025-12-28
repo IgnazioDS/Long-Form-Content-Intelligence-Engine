@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from apps.api.app.deps import get_session
-from apps.api.app.security import require_api_key
 from apps.api.app.schemas import SourceListOut, SourceOut
+from apps.api.app.security import require_api_key
 from packages.shared_db.models import Chunk, Source, SourceStatus
 from packages.shared_db.settings import settings
 from packages.shared_db.storage import source_path

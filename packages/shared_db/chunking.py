@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import bisect
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 
 @dataclass

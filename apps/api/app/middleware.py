@@ -5,7 +5,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
-from typing import Callable
+from collections.abc import Awaitable, Callable
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -49,7 +49,9 @@ rate_limiter = RateLimiter(settings.rate_limit_rps, settings.rate_limit_burst)
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         token = request_id_var.set(request_id)
         start = time.perf_counter()
@@ -85,7 +87,9 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         if settings.rate_limit_rps <= 0:
             return await call_next(request)
         client_host = request.client.host if request.client else "unknown"

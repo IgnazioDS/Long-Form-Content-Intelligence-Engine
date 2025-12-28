@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from apps.api.app.deps import get_session, settings
-from apps.api.app.security import require_api_key
 from apps.api.app.schemas import CitationOut, QueryRequest, QueryVerifiedResponse
+from apps.api.app.security import require_api_key
 from apps.api.app.services.rag import build_snippet, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
 from apps.api.app.services.verify import verify_answer

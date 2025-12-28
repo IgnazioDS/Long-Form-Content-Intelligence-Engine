@@ -168,8 +168,12 @@ python3 scripts/eval/run_eval_verified.py --thresholds scripts/eval/thresholds.j
 CI enforces the quality gates in `scripts/eval/thresholds.json` for both eval runs.
 
 The conflicts dataset uses `scripts/eval/golden_verified_conflicts.json` and fixture
-`scripts/fixtures/conflicts.pdf`. Its thresholds live under
+`scripts/fixtures/conflicts.pdf` with profile `conflicts`. Its thresholds live under
 `eval_verified_conflicts` in `scripts/eval/thresholds.json`.
+Conflict thresholds are selected when the dataset profile is `conflicts` or
+`eval_verified_conflicts`, when the fixture is `conflicts.pdf`, or when the dataset
+filename includes `conflicts`. If a conflicts profile is set without a fixture, the
+runner defaults to `conflicts.pdf`.
 
 Outputs are written to:
 - `scripts/eval/out/eval_results.json`

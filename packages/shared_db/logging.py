@@ -67,8 +67,8 @@ def configure_logging(service: str, level: str, force: bool = False) -> None:
     handler.setFormatter(JsonFormatter(service))
     root.handlers = [handler]
     root.setLevel(level.upper())
-    root._lfcie_configured = True
-    root._lfcie_service = service
+    root._lfcie_configured = True  # type: ignore[attr-defined]
+    root._lfcie_service = service  # type: ignore[attr-defined]
 
     for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         logger = logging.getLogger(logger_name)

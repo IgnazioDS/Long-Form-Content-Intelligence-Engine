@@ -55,6 +55,11 @@ jobs:
           EVAL_READY_TIMEOUT_SECONDS: "120"
           EVAL_HTTP_TIMEOUT_SECONDS: "45"
         run: python3 scripts/eval/run_eval_verified.py --thresholds scripts/eval/thresholds.json
+      - name: Eval verified conflicts
+        env:
+          EVAL_READY_TIMEOUT_SECONDS: "120"
+          EVAL_HTTP_TIMEOUT_SECONDS: "45"
+        run: python3 scripts/eval/run_eval_verified.py --dataset scripts/eval/golden_verified_conflicts.json --thresholds scripts/eval/thresholds.json
       - name: Upload eval reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
