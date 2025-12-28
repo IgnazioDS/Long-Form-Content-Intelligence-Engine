@@ -30,6 +30,7 @@ DEFAULT_READY_TIMEOUT_SECONDS = 60
 DEFAULT_HTTP_TIMEOUT_SECONDS = 30
 POST_RETRY_LIMIT = 3
 RETRY_BACKOFF_SECONDS = 0.5
+HEALTH_POLL_INTERVAL_SECONDS = 2.0
 
 EVAL_MULTISOURCE_GATE_DEFINITIONS = (
     ("invalid_citation_count_max", "invalid_citation_count", "<="),
@@ -200,6 +201,22 @@ def post_with_retries(
     if last_error:
         raise last_error
     raise RuntimeError("Failed to POST after retries")
+
+
+def wait_for_health(client: httpx.Client, base_url: str, timeout_s: int) -> None:
+    deadline = time.time() + timeout_s
+    last_error: Exception | None = None
+    while time.time() < deadline:
+        try:
+            response = client.get(f"{base_url}/health")
+            response.raise_for_status()
+            return
+        except httpx.HTTPError as exc:
+            last_error = exc
+            time.sleep(HEALTH_POLL_INTERVAL_SECONDS)
+    if last_error:
+        raise last_error
+    raise TimeoutError("Timed out waiting for /health")
 
 
 def resolve_source_id(
@@ -404,8 +421,7 @@ def main() -> None:
     thresholds = load_thresholds(thresholds_path, "eval_multisource")
 
     with httpx.Client(timeout=float(http_timeout)) as client:
-        health = client.get(f"{base_url}/health")
-        health.raise_for_status()
+        wait_for_health(client, base_url, ready_timeout)
 
         source_ids: list[str] = []
         source_lookup: dict[str, str] = {}
