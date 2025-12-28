@@ -28,6 +28,18 @@
 - `CHUNK_CHAR_TARGET` (default: `5000`)
 - `CHUNK_CHAR_OVERLAP` (default: `800`)
 
+## Optional Environment Variables
+
+- `API_KEY` (if set, send `X-API-Key` on requests)
+- `RATE_LIMIT_RPS` (default: `0`, disabled when `0`)
+- `RATE_LIMIT_BURST` (default: `0`)
+- `MMR_ENABLED` (default: `true`)
+- `MMR_LAMBDA` (default: `0.7`)
+- `MMR_CANDIDATES` (default: `30`)
+- `MAX_PDF_BYTES` (default: `25000000`)
+- `MAX_PDF_PAGES` (default: `300`)
+- `LOG_LEVEL` (default: `INFO`)
+
 ## How to Run Locally
 
 ```bash
@@ -62,6 +74,11 @@ make lint
 Health check:
 ```bash
 curl http://localhost:8000/health
+```
+
+Dependency health:
+```bash
+curl http://localhost:8000/health/deps
 ```
 
 Upload a PDF:

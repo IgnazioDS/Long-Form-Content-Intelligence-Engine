@@ -106,13 +106,17 @@ def _rerank_openai(
 
 
 def rerank_chunks(
-    question: str, chunks: list[RetrievedChunk], snippet_chars: int
+    question: str,
+    chunks: list[RetrievedChunk],
+    snippet_chars: int,
+    enabled: bool | None = None,
 ) -> list[RetrievedChunk]:
     if not chunks:
         return []
 
     pre_sorted = sorted(chunks, key=lambda item: item.score, reverse=True)
-    if not settings.rerank_enabled:
+    rerank_enabled = settings.rerank_enabled if enabled is None else enabled
+    if not rerank_enabled:
         return pre_sorted
 
     candidate_count = max(settings.rerank_candidates, 0)

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from apps.api.app.deps import get_session, settings
+from apps.api.app.security import require_api_key
 from apps.api.app.schemas import CitationOut, QueryRequest, QueryVerifiedResponse
 from apps.api.app.services.rag import build_snippet, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
@@ -11,7 +14,8 @@ from apps.api.app.services.verify import verify_answer
 from packages.shared_db.models import Answer, Query
 from packages.shared_db.openai_client import embed_texts
 
-router = APIRouter()
+logger = logging.getLogger(__name__)
+router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 @router.post("/query/verified", response_model=QueryVerifiedResponse)
@@ -25,6 +29,7 @@ def query_verified(
         question=payload.question,
         query_embedding=query_embedding,
         source_ids=payload.source_ids,
+        rerank=payload.rerank,
     )
     top_chunks = candidates[: settings.max_chunks_per_query]
 
@@ -32,6 +37,15 @@ def query_verified(
     session.add(query_row)
     session.commit()
     session.refresh(query_row)
+
+    logger.info(
+        "query_verified_received",
+        extra={
+            "query_id": str(query_row.id),
+            "source_ids": [str(source_id) for source_id in (payload.source_ids or [])],
+            "rerank": payload.rerank,
+        },
+    )
 
     answer_text, cited_ids = generate_answer(payload.question, top_chunks)
 
@@ -62,5 +76,15 @@ def query_verified(
     )
     session.add(answer_row)
     session.commit()
+
+    logger.info(
+        "query_verified_completed",
+        extra={
+            "query_id": str(query_row.id),
+            "citations_count": len(citations),
+            "claims_count": len(claims),
+            "answer_length": len(answer_text),
+        },
+    )
 
     return QueryVerifiedResponse(answer=answer_text, citations=citations, claims=claims)

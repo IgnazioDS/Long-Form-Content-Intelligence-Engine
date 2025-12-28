@@ -26,6 +26,7 @@ class SourceListOut(BaseModel):
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=3)
     source_ids: list[UUID] | None = None
+    rerank: bool | None = None
 
 
 class CitationOut(BaseModel):

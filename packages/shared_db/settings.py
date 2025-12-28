@@ -20,8 +20,17 @@ class Settings(BaseSettings):
     rerank_enabled: bool = Field(True, alias="RERANK_ENABLED")
     rerank_candidates: int = Field(30, alias="RERANK_CANDIDATES")
     rerank_snippet_chars: int = Field(900, alias="RERANK_SNIPPET_CHARS")
+    mmr_enabled: bool = Field(True, alias="MMR_ENABLED")
+    mmr_lambda: float = Field(0.7, alias="MMR_LAMBDA")
+    mmr_candidates: int = Field(30, alias="MMR_CANDIDATES")
     chunk_char_target: int = Field(5000, alias="CHUNK_CHAR_TARGET")
     chunk_char_overlap: int = Field(800, alias="CHUNK_CHAR_OVERLAP")
+    max_pdf_bytes: int = Field(25_000_000, alias="MAX_PDF_BYTES")
+    max_pdf_pages: int = Field(300, alias="MAX_PDF_PAGES")
+    api_key: str = Field("", alias="API_KEY")
+    rate_limit_rps: float = Field(0.0, alias="RATE_LIMIT_RPS")
+    rate_limit_burst: int = Field(0, alias="RATE_LIMIT_BURST")
+    log_level: str = Field("INFO", alias="LOG_LEVEL")
 
 
 settings = Settings()  # type: ignore[call-arg]

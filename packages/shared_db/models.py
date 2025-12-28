@@ -46,6 +46,8 @@ class Chunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     page_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
     page_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    char_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    char_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
     section_path: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     tsv: Mapped[str] = mapped_column(TSVECTOR, nullable=False)

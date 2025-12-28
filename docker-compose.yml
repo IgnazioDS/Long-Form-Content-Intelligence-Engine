@@ -28,7 +28,11 @@ services:
       retries: 5
 
   api:
-    build: .
+    build:
+      context: .
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
     env_file: .env
     environment:
       AI_PROVIDER: ${AI_PROVIDER:-openai}
@@ -47,11 +51,16 @@ services:
       /bin/sh -c "alembic upgrade head && uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   worker:
-    build: .
+    build:
+      context: .
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
     env_file: .env
     environment:
       AI_PROVIDER: ${AI_PROVIDER:-openai}
       DEBUG: ${DEBUG:-false}
+    user: ${APP_UID:-1000}:${APP_GID:-1000}
     depends_on:
       postgres:
         condition: service_healthy

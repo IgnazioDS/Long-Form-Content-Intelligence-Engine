@@ -7,13 +7,14 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from apps.api.app.deps import get_session
+from apps.api.app.security import require_api_key
 from apps.api.app.schemas import SourceListOut, SourceOut
 from packages.shared_db.models import Chunk, Source, SourceStatus
 from packages.shared_db.settings import settings
 from packages.shared_db.storage import source_path
 from services.ingest.worker import celery_app
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 @router.post("/sources/upload", response_model=SourceOut)

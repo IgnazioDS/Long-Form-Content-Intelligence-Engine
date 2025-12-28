@@ -33,8 +33,23 @@ def ingest_source(source_id: str) -> None:
         session.commit()
 
         path = source_path(source_id)
+        if settings.max_pdf_bytes > 0:
+            file_size = path.stat().st_size
+            if file_size > settings.max_pdf_bytes:
+                max_mb = settings.max_pdf_bytes / (1024 * 1024)
+                raise ValueError(
+                    f"PDF exceeds max size of {max_mb:.1f} MB. "
+                    "Please upload a smaller file."
+                )
         pages: list[tuple[int, str]] = []
         with fitz.open(str(path)) as doc:
+            if getattr(doc, "is_encrypted", False) or getattr(doc, "needs_pass", False):
+                raise ValueError("PDF is encrypted. Please upload an unencrypted PDF.")
+            if settings.max_pdf_pages > 0 and doc.page_count > settings.max_pdf_pages:
+                raise ValueError(
+                    f"PDF exceeds max page count of {settings.max_pdf_pages}. "
+                    "Please upload a shorter document."
+                )
             for page_index, page in enumerate(doc, start=1):
                 text = normalize_text(page.get_text())
                 if text:
@@ -42,7 +57,9 @@ def ingest_source(source_id: str) -> None:
 
         chunks = chunk_pages(pages, settings.chunk_char_target, settings.chunk_char_overlap)
         if not chunks:
-            raise ValueError("No text extracted from PDF")
+            raise ValueError(
+                "No extractable text found. If this is a scanned PDF, run OCR and re-upload."
+            )
 
         embeddings = embed_texts([chunk.text for chunk in chunks])
 
@@ -56,6 +73,8 @@ def ingest_source(source_id: str) -> None:
                     chunk_index=chunk.chunk_index,
                     page_start=chunk.page_start,
                     page_end=chunk.page_end,
+                    char_start=chunk.char_start,
+                    char_end=chunk.char_end,
                     section_path=[],
                     text=chunk.text,
                     tsv=func.to_tsvector("english", chunk.text),

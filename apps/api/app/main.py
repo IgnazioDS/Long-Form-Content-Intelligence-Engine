@@ -1,8 +1,16 @@
 from fastapi import FastAPI
 
 from apps.api.app.api import health, query, query_verified, sources
+from apps.api.app.middleware import RateLimitMiddleware, RequestContextMiddleware
+from packages.shared_db.logging import configure_logging
+from packages.shared_db.settings import settings
+
+configure_logging("api", settings.log_level, force=True)
 
 app = FastAPI(title="Long-Form Content Intelligence Engine")
+
+app.add_middleware(RequestContextMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 app.include_router(health.router)
 app.include_router(sources.router)
