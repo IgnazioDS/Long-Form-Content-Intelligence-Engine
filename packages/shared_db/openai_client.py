@@ -15,6 +15,15 @@ from packages.shared_db.settings import settings
 _client: OpenAI | None = None
 _FAKE_EMBED_DIM = 1536
 _CHUNK_ID_RE = re.compile(r"\[CHUNK ([0-9a-fA-F-]{36})\]")
+_FAKE_INSUFFICIENT_HINTS = (
+    "publication date",
+    "published",
+    "publication",
+    "author",
+    "authored",
+    "company",
+    "publisher",
+)
 
 
 def _provider() -> str:
@@ -58,12 +67,36 @@ def _extract_chunks(payload: str) -> tuple[list[str], list[str]]:
     return chunk_ids, chunk_texts
 
 
+def _extract_question(payload: str) -> str:
+    marker = "Question:"
+    context_marker = "Context:"
+    if marker not in payload:
+        return ""
+    remainder = payload.split(marker, 1)[1]
+    if context_marker in remainder:
+        return remainder.split(context_marker, 1)[0].strip()
+    return remainder.strip()
+
+
+def _should_fake_insufficient(question: str) -> bool:
+    lowered = question.lower()
+    return any(hint in lowered for hint in _FAKE_INSUFFICIENT_HINTS)
+
+
 def _fake_chat(messages: list[dict[str, str]]) -> str:
     user_content = ""
     for message in reversed(messages):
         if message.get("role") == "user":
             user_content = str(message.get("content", ""))
             break
+    question = _extract_question(user_content)
+    if question and _should_fake_insufficient(question):
+        payload = {
+            "answer": "insufficient evidence",
+            "citations": [],
+            "follow_ups": ["Ask about a specific section or provide more detail."],
+        }
+        return json.dumps(payload)
     chunk_ids, chunk_texts = _extract_chunks(user_content)
     if not chunk_ids:
         payload = {
