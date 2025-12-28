@@ -1,4 +1,4 @@
-.PHONY: up down test lint smoke eval install-dev check
+.PHONY: up down test lint smoke eval eval-verified install-dev check
 
 up:
 	docker compose up --build
@@ -26,3 +26,6 @@ smoke:
 
 eval:
 	python3 scripts/eval/run_eval.py
+
+eval-verified:
+	python3 scripts/eval/run_eval_verified.py

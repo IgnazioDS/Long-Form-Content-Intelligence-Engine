@@ -1,0 +1,85 @@
+[
+  {
+    "id": "verified-001",
+    "question": "What is the document titled?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["Long-Form Content Intelligence Engine"]
+  },
+  {
+    "id": "verified-002",
+    "question": "Is this described as a sample document?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["sample document"]
+  },
+  {
+    "id": "verified-003",
+    "question": "What is the document used for?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["smoke testing"]
+  },
+  {
+    "id": "verified-004",
+    "question": "What does it describe about retrieval?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["retrieval"]
+  },
+  {
+    "id": "verified-005",
+    "question": "Does the text mention citations?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["citations"]
+  },
+  {
+    "id": "verified-006",
+    "question": "Does it mention deterministic behavior?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["deterministic behavior"]
+  },
+  {
+    "id": "verified-007",
+    "question": "Summarize the document in one sentence.",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["Long-Form", "sample document"]
+  },
+  {
+    "id": "verified-008",
+    "question": "Which engine is referenced?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["Content Intelligence Engine"]
+  },
+  {
+    "id": "verified-009",
+    "question": "What is the document about?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["Long-Form Content Intelligence Engine"]
+  },
+  {
+    "id": "verified-010",
+    "question": "Does the document describe citations and retrieval?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["citations", "retrieval"]
+  },
+  {
+    "id": "verified-011",
+    "question": "What is the document used for testing?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["smoke testing"],
+    "must_not_include_keywords": ["OpenAI"]
+  },
+  {
+    "id": "verified-012",
+    "question": "What behavior is described as deterministic?",
+    "expected_behavior": "ANSWERABLE",
+    "must_include_keywords": ["deterministic behavior"]
+  },
+  {
+    "id": "verified-013",
+    "question": "What is the publication date of the document?",
+    "expected_behavior": "INSUFFICIENT_EVIDENCE"
+  },
+  {
+    "id": "verified-014",
+    "question": "Which company authored the document?",
+    "expected_behavior": "INSUFFICIENT_EVIDENCE"
+  }
+]

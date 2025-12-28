@@ -130,10 +130,16 @@ Recommended env: `AI_PROVIDER=fake` and `DEBUG=true` (needed for citation valida
    ```bash
    make eval
    ```
+3. Run the verified eval harness:
+   ```bash
+   make eval-verified
+   ```
 
 Outputs are written to:
 - `scripts/eval/out/eval_results.json`
 - `scripts/eval/out/eval_report.md`
+- `scripts/eval/out/eval_verified_results.json`
+- `scripts/eval/out/eval_verified_report.md`
 
 ## Notes
 
