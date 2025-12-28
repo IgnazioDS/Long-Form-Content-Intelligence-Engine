@@ -152,6 +152,14 @@ Recommended env: `AI_PROVIDER=fake` and `DEBUG=true` (needed for citation valida
    make eval-verified
    ```
 
+Thresholds live in `scripts/eval/thresholds.json`. Override them explicitly:
+```bash
+python3 scripts/eval/run_eval.py --thresholds scripts/eval/thresholds.json
+python3 scripts/eval/run_eval_verified.py --thresholds scripts/eval/thresholds.json
+```
+
+CI enforces the quality gates in `scripts/eval/thresholds.json` for both eval runs.
+
 Outputs are written to:
 - `scripts/eval/out/eval_results.json`
 - `scripts/eval/out/eval_report.md`

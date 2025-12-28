@@ -24,6 +24,7 @@ from _common.api_client import (  # noqa: E402
 
 DATASET_PATH = Path(__file__).resolve().parent / "golden_verified.json"
 OUT_DIR = Path(__file__).resolve().parent / "out"
+THRESHOLDS_PATH = Path(__file__).resolve().parent / "thresholds.json"
 
 GENERIC_ANSWER_PHRASES = (
     "insufficient evidence",
@@ -50,11 +51,12 @@ VERDICT_KEYS = (
 )
 
 ALLOWED_RELATIONS = {"SUPPORTS", "CONTRADICTS", "RELATED"}
-QUALITY_GATES = (
-    ("invalid_evidence_id_count", "==", 0),
-    ("answerable_pass_rate", ">=", 0.95),
-    ("avg_claims_per_answerable", ">=", 2.0),
-    ("unsupported_rate", "<=", 0.75),
+EVAL_VERIFIED_GATE_DEFINITIONS = (
+    ("invalid_citation_count_max", "invalid_citation_count", "<="),
+    ("invalid_evidence_id_count_max", "invalid_evidence_id_count", "<="),
+    ("answerable_pass_rate_min", "answerable_pass_rate", ">="),
+    ("avg_claims_per_answerable_min", "avg_claims_per_answerable", ">="),
+    ("unsupported_rate_max", "unsupported_rate", "<="),
 )
 
 
@@ -71,6 +73,16 @@ def load_cases(path: Path) -> list[dict[str, Any]]:
                 raise ValueError(f"Missing required field: {key}")
         cases.append(item)
     return cases
+
+
+def load_thresholds(path: Path, section: str) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Thresholds file must be a JSON object")
+    thresholds = payload.get(section)
+    if not isinstance(thresholds, dict):
+        raise ValueError(f"Missing thresholds section: {section}")
+    return thresholds
 
 
 def get_git_commit() -> str | None:
@@ -133,6 +145,40 @@ def is_score_valid(score: Any) -> bool:
     if not isinstance(score, (int, float)):
         return False
     return 0.0 <= float(score) <= 1.0
+
+
+def evaluate_quality_gates(
+    metrics: dict[str, Any],
+    thresholds: dict[str, Any],
+    definitions: tuple[tuple[str, str, str], ...],
+) -> dict[str, dict[str, Any]]:
+    results: dict[str, dict[str, Any]] = {}
+    for gate_name, metric_key, operator in definitions:
+        if gate_name not in thresholds:
+            raise ValueError(f"Missing threshold: {gate_name}")
+        threshold_value = thresholds[gate_name]
+        actual_value = metrics.get(metric_key)
+        passed = False
+        if actual_value is not None:
+            try:
+                actual_numeric = float(actual_value)
+                threshold_numeric = float(threshold_value)
+            except (TypeError, ValueError):
+                passed = False
+            else:
+                if operator == "<=":
+                    passed = actual_numeric <= threshold_numeric
+                elif operator == ">=":
+                    passed = actual_numeric >= threshold_numeric
+                else:
+                    raise ValueError(f"Unsupported operator: {operator}")
+
+        results[gate_name] = {
+            "passed": passed,
+            "expected": f"{operator} {threshold_value}",
+            "actual": actual_value,
+        }
+    return results
 
 
 def evaluate_case(
@@ -329,59 +375,6 @@ def evaluate_case(
     return result, invalid_citations, invalid_evidence_ids, evidence_count
 
 
-def evaluate_quality_gates(
-    metrics: dict[str, Any],
-) -> tuple[list[str], list[dict[str, Any]]]:
-    failures: list[str] = []
-    results: list[dict[str, Any]] = []
-    for key, operator, threshold in QUALITY_GATES:
-        value = metrics.get(key)
-        status = "PASS"
-        if value is None:
-            status = "FAIL"
-            failures.append(f"{key}_missing")
-        else:
-            try:
-                numeric_value = float(value)
-            except (TypeError, ValueError):
-                status = "FAIL"
-                failures.append(f"{key}_non_numeric(value={value})")
-            else:
-                threshold_value = float(threshold)
-                if operator == "==":
-                    if numeric_value != threshold_value:
-                        status = "FAIL"
-                        failures.append(
-                            f"{key}_threshold(value={value}, expected=={threshold})"
-                        )
-                elif operator == ">=":
-                    if numeric_value < threshold_value:
-                        status = "FAIL"
-                        failures.append(
-                            f"{key}_threshold(value={value}, expected>={threshold})"
-                        )
-                elif operator == "<=":
-                    if numeric_value > threshold_value:
-                        status = "FAIL"
-                        failures.append(
-                            f"{key}_threshold(value={value}, expected<={threshold})"
-                        )
-                else:
-                    status = "FAIL"
-                    failures.append(f"{key}_unknown_operator({operator})")
-
-        results.append(
-            {
-                "metric": key,
-                "operator": operator,
-                "threshold": threshold,
-                "value": value,
-                "status": status,
-            }
-        )
-    return failures, results
-
-
 def resolve_source_id(
     client: httpx.Client, base_url: str, pdf_path: Path
 ) -> tuple[str, dict[str, Any]]:
@@ -404,8 +397,7 @@ def write_report(
     results: list[dict[str, Any]],
     metrics: dict[str, Any],
     metadata: dict[str, Any],
-    gate_results: list[dict[str, Any]],
-    gate_failures: list[str],
+    quality_gates: dict[str, dict[str, Any]],
 ) -> None:
     failed = [case for case in results if not case.get("passed")]
 
@@ -441,24 +433,16 @@ def write_report(
         lines.append(f"| {key} | {metrics[key]} |")
     lines.append("")
     lines.append("## Quality Gates")
-    if not gate_results:
+    if not quality_gates:
         lines.append("- No gates configured.")
     else:
-        lines.append("| Gate | Status | Value | Threshold |")
+        lines.append("| Gate | Status | Actual | Expected |")
         lines.append("| --- | --- | --- | --- |")
-        for gate in gate_results:
+        for gate_name, gate in quality_gates.items():
+            status = "PASS" if gate.get("passed") else "FAIL"
             lines.append(
-                "| {metric} | {status} | {value} | {operator} {threshold} |".format(
-                    metric=gate.get("metric"),
-                    status=gate.get("status"),
-                    value=gate.get("value"),
-                    operator=gate.get("operator"),
-                    threshold=gate.get("threshold"),
-                )
+                f"| {gate_name} | {status} | {gate.get('actual')} | {gate.get('expected')} |"
             )
-        if gate_failures:
-            lines.append("")
-            lines.append("- Gate failures: " + ", ".join(gate_failures))
     lines.append("")
     lines.append("## Failures")
     if not failed:
@@ -476,16 +460,26 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run verified evaluation harness.")
     parser.add_argument("--base-url", default=None, help="API base URL")
     parser.add_argument("--dataset", default=str(DATASET_PATH), help="Path to dataset JSON")
+    parser.add_argument(
+        "--thresholds",
+        default=str(THRESHOLDS_PATH),
+        help="Path to thresholds JSON",
+    )
     args = parser.parse_args()
 
     dataset_path = Path(args.dataset)
     if not dataset_path.exists():
         raise FileNotFoundError(f"Dataset not found: {dataset_path}")
 
+    thresholds_path = Path(args.thresholds)
+    if not thresholds_path.exists():
+        raise FileNotFoundError(f"Thresholds not found: {thresholds_path}")
+
     pdf_path = fixture_pdf_path()
     base_url = get_base_url(args.base_url)
 
     cases = load_cases(dataset_path)
+    thresholds = load_thresholds(thresholds_path, "eval_verified")
 
     with httpx.Client(timeout=30.0) as client:
         health = client.get(f"{base_url}/health")
@@ -600,7 +594,10 @@ def main() -> None:
         "conflicting_rate": conflicting_rate,
     }
 
-    gate_failures, gate_results = evaluate_quality_gates(metrics)
+    quality_gates = evaluate_quality_gates(
+        metrics, thresholds, EVAL_VERIFIED_GATE_DEFINITIONS
+    )
+    gate_failures = [name for name, gate in quality_gates.items() if not gate.get("passed")]
 
     metadata = {
         "timestamp": timestamp,
@@ -617,15 +614,12 @@ def main() -> None:
     output_payload = {
         "metadata": metadata,
         "metrics": metrics,
-        "quality_gates": {
-            "failures": gate_failures,
-            "results": gate_results,
-        },
+        "quality_gates": quality_gates,
         "cases": results,
     }
 
     json_path.write_text(json.dumps(output_payload, indent=2), encoding="utf-8")
-    write_report(report_path, results, metrics, metadata, gate_results, gate_failures)
+    write_report(report_path, results, metrics, metadata, quality_gates)
 
     print(f"Eval verified complete: {passed_cases}/{total_cases} passed")
     print(f"Results: {json_path}")

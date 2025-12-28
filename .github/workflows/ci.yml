@@ -24,16 +24,22 @@ jobs:
         run: make test
       - name: Prepare eval env
         run: |
-          cp .env.example .env
-          sed -i 's/^AI_PROVIDER=.*/AI_PROVIDER=fake/' .env
-          sed -i 's/^DEBUG=.*/DEBUG=true/' .env
+          cat <<'EOF' > .env
+          AI_PROVIDER=fake
+          DEBUG=true
+          DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/lfcie
+          REDIS_URL=redis://redis:6379/0
+          EOF
       - name: Start stack
-        run: AI_PROVIDER=fake DEBUG=true docker compose up -d --build
+        run: docker compose --env-file .env up -d --build
       - name: Wait for API
         run: |
           for i in {1..30}; do
             if curl -sf http://localhost:8000/health >/dev/null; then
-              exit 0
+              deps_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health/deps || true)
+              if [ "$deps_status" = "200" ] || [ "$deps_status" = "404" ]; then
+                exit 0
+              fi
             fi
             sleep 2
           done
@@ -43,6 +49,16 @@ jobs:
         run: make eval
       - name: Eval verified
         run: make eval-verified
+      - name: Upload eval reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-reports
+          path: |
+            scripts/eval/out/eval_report.md
+            scripts/eval/out/eval_results.json
+            scripts/eval/out/eval_verified_report.md
+            scripts/eval/out/eval_verified_results.json
       - name: Tear down stack
         if: always()
         run: docker compose down -v
