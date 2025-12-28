@@ -154,6 +154,10 @@ Eval runners also respect:
    ```bash
    make eval-verified
    ```
+4. Run the verified conflicts eval harness:
+   ```bash
+   make eval-verified-conflicts
+   ```
 
 Thresholds live in `scripts/eval/thresholds.json`. Override them explicitly:
 ```bash
@@ -162,6 +166,10 @@ python3 scripts/eval/run_eval_verified.py --thresholds scripts/eval/thresholds.j
 ```
 
 CI enforces the quality gates in `scripts/eval/thresholds.json` for both eval runs.
+
+The conflicts dataset uses `scripts/eval/golden_verified_conflicts.json` and fixture
+`scripts/fixtures/conflicts.pdf`. Its thresholds live under
+`eval_verified_conflicts` in `scripts/eval/thresholds.json`.
 
 Outputs are written to:
 - `scripts/eval/out/eval_results.json`

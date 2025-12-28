@@ -11,5 +11,9 @@
     "answerable_pass_rate_min": 0.95,
     "avg_claims_per_answerable_min": 2.0,
     "unsupported_rate_max": 0.75
+  },
+  "eval_verified_conflicts": {
+    "invalid_evidence_id_count_max": 0,
+    "contradicted_or_conflicting_rate_min": 0.0
   }
 }

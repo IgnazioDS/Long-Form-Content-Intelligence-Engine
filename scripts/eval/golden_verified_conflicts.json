@@ -1,0 +1,65 @@
+{
+  "fixture": "conflicts.pdf",
+  "cases": [
+    {
+      "id": "conflicts-001",
+      "question": "Which port does the system use for the API?",
+      "expected_behavior": "ANSWERABLE",
+      "require_verdicts": ["CONTRADICTED", "CONFLICTING"]
+    },
+    {
+      "id": "conflicts-002",
+      "question": "What release date does the document state?",
+      "expected_behavior": "ANSWERABLE",
+      "require_verdicts": ["CONTRADICTED", "CONFLICTING"]
+    },
+    {
+      "id": "conflicts-003",
+      "question": "What cache size is listed for the system?",
+      "expected_behavior": "ANSWERABLE",
+      "forbid_verdicts": ["CONFLICTING"]
+    },
+    {
+      "id": "conflicts-004",
+      "question": "What is the title of the fixture?",
+      "expected_behavior": "ANSWERABLE",
+      "forbid_verdicts": ["CONTRADICTED"]
+    },
+    {
+      "id": "conflicts-005",
+      "question": "What does Section A say about the API port?",
+      "expected_behavior": "ANSWERABLE",
+      "forbid_verdicts": ["CONFLICTING"]
+    },
+    {
+      "id": "conflicts-006",
+      "question": "What does Section B say about the API port?",
+      "expected_behavior": "ANSWERABLE",
+      "forbid_verdicts": ["CONTRADICTED"]
+    },
+    {
+      "id": "conflicts-007",
+      "question": "What is this document used for?",
+      "expected_behavior": "ANSWERABLE",
+      "forbid_verdicts": ["CONTRADICTED"]
+    },
+    {
+      "id": "conflicts-008",
+      "question": "Does the fixture mention intentional conflicts?",
+      "expected_behavior": "ANSWERABLE",
+      "forbid_verdicts": ["CONFLICTING"]
+    },
+    {
+      "id": "conflicts-009",
+      "question": "What is the publication date of this document?",
+      "expected_behavior": "INSUFFICIENT_EVIDENCE",
+      "forbid_verdicts": ["SUPPORTED", "WEAK_SUPPORT", "CONTRADICTED", "CONFLICTING"]
+    },
+    {
+      "id": "conflicts-010",
+      "question": "Which company authored the fixture?",
+      "expected_behavior": "INSUFFICIENT_EVIDENCE",
+      "forbid_verdicts": ["SUPPORTED", "WEAK_SUPPORT", "CONTRADICTED", "CONFLICTING"]
+    }
+  ]
+}

@@ -65,6 +65,15 @@ EVAL_VERIFIED_GATE_DEFINITIONS = (
     ("unsupported_rate_max", "unsupported_rate", "<="),
 )
 
+EVAL_VERIFIED_CONFLICTS_GATE_DEFINITIONS = (
+    ("invalid_evidence_id_count_max", "invalid_evidence_id_count", "<="),
+    (
+        "contradicted_or_conflicting_rate_min",
+        "contradicted_or_conflicting_rate",
+        ">=",
+    ),
+)
+
 
 def get_env_int(name: str, default: int) -> int:
     raw = os.getenv(name)
@@ -76,19 +85,30 @@ def get_env_int(name: str, default: int) -> int:
         return default
 
 
-def load_cases(path: Path) -> list[dict[str, Any]]:
+def load_dataset(path: Path) -> tuple[list[dict[str, Any]], str | None]:
     payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, list):
-        raise ValueError("Eval dataset must be a JSON list")
+    if isinstance(payload, list):
+        cases_payload = payload
+        fixture_name: str | None = None
+    elif isinstance(payload, dict):
+        cases_payload = payload.get("cases", [])
+        fixture_raw = payload.get("fixture")
+        fixture_name = str(fixture_raw).strip() if fixture_raw else None
+    else:
+        raise ValueError("Eval dataset must be a JSON list or object")
+
+    if not isinstance(cases_payload, list):
+        raise ValueError("Eval dataset cases must be a list")
+
     cases: list[dict[str, Any]] = []
-    for item in payload:
+    for item in cases_payload:
         if not isinstance(item, dict):
             raise ValueError("Each eval case must be an object")
         for key in ("id", "question", "expected_behavior"):
             if key not in item:
                 raise ValueError(f"Missing required field: {key}")
         cases.append(item)
-    return cases
+    return cases, fixture_name
 
 
 def load_thresholds(path: Path, section: str) -> dict[str, Any]:
@@ -99,6 +119,17 @@ def load_thresholds(path: Path, section: str) -> dict[str, Any]:
     if not isinstance(thresholds, dict):
         raise ValueError(f"Missing thresholds section: {section}")
     return thresholds
+
+
+def resolve_fixture_path(fixture_name: str | None) -> Path:
+    if fixture_name:
+        candidate = Path(fixture_name)
+        if not candidate.is_absolute():
+            candidate = Path(__file__).resolve().parents[1] / "fixtures" / fixture_name
+        if not candidate.exists():
+            raise FileNotFoundError(f"Fixture not found: {candidate}")
+        return candidate
+    return fixture_pdf_path()
 
 
 def get_git_commit() -> str | None:
@@ -474,6 +505,7 @@ def write_report(
         "unsupported_rate",
         "contradicted_rate",
         "conflicting_rate",
+        "contradicted_or_conflicting_rate",
     ):
         lines.append(f"| {key} | {metrics[key]} |")
     lines.append("")
@@ -506,6 +538,11 @@ def main() -> None:
     parser.add_argument("--base-url", default=None, help="API base URL")
     parser.add_argument("--dataset", default=str(DATASET_PATH), help="Path to dataset JSON")
     parser.add_argument(
+        "--fixture",
+        default=None,
+        help="Fixture PDF filename or path (overrides dataset fixture)",
+    )
+    parser.add_argument(
         "--thresholds",
         default=str(THRESHOLDS_PATH),
         help="Path to thresholds JSON",
@@ -525,11 +562,22 @@ def main() -> None:
     )
     http_timeout = get_env_int("EVAL_HTTP_TIMEOUT_SECONDS", DEFAULT_HTTP_TIMEOUT_SECONDS)
 
-    pdf_path = fixture_pdf_path()
     base_url = get_base_url(args.base_url)
 
-    cases = load_cases(dataset_path)
-    thresholds = load_thresholds(thresholds_path, "eval_verified")
+    cases, dataset_fixture = load_dataset(dataset_path)
+    fixture_name = args.fixture or dataset_fixture
+    pdf_path = resolve_fixture_path(fixture_name)
+
+    is_conflicts_fixture = pdf_path.name == "conflicts.pdf"
+    thresholds_section = (
+        "eval_verified_conflicts" if is_conflicts_fixture else "eval_verified"
+    )
+    gate_definitions = (
+        EVAL_VERIFIED_CONFLICTS_GATE_DEFINITIONS
+        if is_conflicts_fixture
+        else EVAL_VERIFIED_GATE_DEFINITIONS
+    )
+    thresholds = load_thresholds(thresholds_path, thresholds_section)
 
     with httpx.Client(timeout=float(http_timeout)) as client:
         health = client.get(f"{base_url}/health")
@@ -624,6 +672,10 @@ def main() -> None:
     conflicting_rate = round(
         verdict_totals["CONFLICTING"] / total_claims, 4
     ) if total_claims else 0.0
+    contradicted_or_conflicting_rate = round(
+        (verdict_totals["CONTRADICTED"] + verdict_totals["CONFLICTING"]) / total_claims,
+        4,
+    ) if total_claims else 0.0
 
     timestamp = datetime.now(UTC).isoformat()
     git_commit = get_git_commit()
@@ -644,11 +696,10 @@ def main() -> None:
         "unsupported_rate": unsupported_rate,
         "contradicted_rate": contradicted_rate,
         "conflicting_rate": conflicting_rate,
+        "contradicted_or_conflicting_rate": contradicted_or_conflicting_rate,
     }
 
-    quality_gates = evaluate_quality_gates(
-        metrics, thresholds, EVAL_VERIFIED_GATE_DEFINITIONS
-    )
+    quality_gates = evaluate_quality_gates(metrics, thresholds, gate_definitions)
     gate_failures = [name for name, gate in quality_gates.items() if not gate.get("passed")]
 
     metadata = {
@@ -657,6 +708,7 @@ def main() -> None:
         "base_url": base_url,
         "source_id": source_id,
         "dataset": str(dataset_path),
+        "fixture": pdf_path.name,
     }
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
