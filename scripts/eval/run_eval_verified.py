@@ -50,6 +50,12 @@ VERDICT_KEYS = (
 )
 
 ALLOWED_RELATIONS = {"SUPPORTS", "CONTRADICTS", "RELATED"}
+QUALITY_GATES = (
+    ("invalid_evidence_id_count", "==", 0),
+    ("answerable_pass_rate", ">=", 0.95),
+    ("avg_claims_per_answerable", ">=", 2.0),
+    ("unsupported_rate", "<=", 0.75),
+)
 
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
@@ -323,6 +329,59 @@ def evaluate_case(
     return result, invalid_citations, invalid_evidence_ids, evidence_count
 
 
+def evaluate_quality_gates(
+    metrics: dict[str, Any],
+) -> tuple[list[str], list[dict[str, Any]]]:
+    failures: list[str] = []
+    results: list[dict[str, Any]] = []
+    for key, operator, threshold in QUALITY_GATES:
+        value = metrics.get(key)
+        status = "PASS"
+        if value is None:
+            status = "FAIL"
+            failures.append(f"{key}_missing")
+        else:
+            try:
+                numeric_value = float(value)
+            except (TypeError, ValueError):
+                status = "FAIL"
+                failures.append(f"{key}_non_numeric(value={value})")
+            else:
+                threshold_value = float(threshold)
+                if operator == "==":
+                    if numeric_value != threshold_value:
+                        status = "FAIL"
+                        failures.append(
+                            f"{key}_threshold(value={value}, expected=={threshold})"
+                        )
+                elif operator == ">=":
+                    if numeric_value < threshold_value:
+                        status = "FAIL"
+                        failures.append(
+                            f"{key}_threshold(value={value}, expected>={threshold})"
+                        )
+                elif operator == "<=":
+                    if numeric_value > threshold_value:
+                        status = "FAIL"
+                        failures.append(
+                            f"{key}_threshold(value={value}, expected<={threshold})"
+                        )
+                else:
+                    status = "FAIL"
+                    failures.append(f"{key}_unknown_operator({operator})")
+
+        results.append(
+            {
+                "metric": key,
+                "operator": operator,
+                "threshold": threshold,
+                "value": value,
+                "status": status,
+            }
+        )
+    return failures, results
+
+
 def resolve_source_id(
     client: httpx.Client, base_url: str, pdf_path: Path
 ) -> tuple[str, dict[str, Any]]:
@@ -345,6 +404,8 @@ def write_report(
     results: list[dict[str, Any]],
     metrics: dict[str, Any],
     metadata: dict[str, Any],
+    gate_results: list[dict[str, Any]],
+    gate_failures: list[str],
 ) -> None:
     failed = [case for case in results if not case.get("passed")]
 
@@ -378,6 +439,26 @@ def write_report(
         "conflicting_rate",
     ):
         lines.append(f"| {key} | {metrics[key]} |")
+    lines.append("")
+    lines.append("## Quality Gates")
+    if not gate_results:
+        lines.append("- No gates configured.")
+    else:
+        lines.append("| Gate | Status | Value | Threshold |")
+        lines.append("| --- | --- | --- | --- |")
+        for gate in gate_results:
+            lines.append(
+                "| {metric} | {status} | {value} | {operator} {threshold} |".format(
+                    metric=gate.get("metric"),
+                    status=gate.get("status"),
+                    value=gate.get("value"),
+                    operator=gate.get("operator"),
+                    threshold=gate.get("threshold"),
+                )
+            )
+        if gate_failures:
+            lines.append("")
+            lines.append("- Gate failures: " + ", ".join(gate_failures))
     lines.append("")
     lines.append("## Failures")
     if not failed:
@@ -519,6 +600,8 @@ def main() -> None:
         "conflicting_rate": conflicting_rate,
     }
 
+    gate_failures, gate_results = evaluate_quality_gates(metrics)
+
     metadata = {
         "timestamp": timestamp,
         "git_commit": git_commit,
@@ -534,17 +617,23 @@ def main() -> None:
     output_payload = {
         "metadata": metadata,
         "metrics": metrics,
+        "quality_gates": {
+            "failures": gate_failures,
+            "results": gate_results,
+        },
         "cases": results,
     }
 
     json_path.write_text(json.dumps(output_payload, indent=2), encoding="utf-8")
-    write_report(report_path, results, metrics, metadata)
+    write_report(report_path, results, metrics, metadata, gate_results, gate_failures)
 
     print(f"Eval verified complete: {passed_cases}/{total_cases} passed")
     print(f"Results: {json_path}")
     print(f"Report: {report_path}")
+    if gate_failures:
+        print("Quality gate failures: " + ", ".join(gate_failures))
 
-    if failed_cases:
+    if failed_cases or gate_failures:
         raise SystemExit(1)
 
 
