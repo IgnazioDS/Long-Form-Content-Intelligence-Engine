@@ -1,4 +1,4 @@
-.PHONY: up down test lint smoke eval eval-verified eval-verified-conflicts install-dev check
+.PHONY: up down test lint smoke eval eval-verified eval-verified-conflicts eval-multisource install-dev check
 
 up:
 	docker compose up --build
@@ -32,3 +32,6 @@ eval-verified:
 
 eval-verified-conflicts:
 	python3 scripts/eval/run_eval_verified.py --dataset scripts/eval/golden_verified_conflicts.json
+
+eval-multisource:
+	python3 scripts/eval/run_eval_multisource.py

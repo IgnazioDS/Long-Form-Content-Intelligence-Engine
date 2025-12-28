@@ -112,7 +112,7 @@ def _fake_chat(messages: list[dict[str, str]]) -> str:
         answer = snippet
     else:
         answer = "Based on the provided context, the document contains relevant information."
-    payload = {"answer": answer, "citations": [chunk_ids[0]], "follow_ups": []}
+    payload = {"answer": answer, "citations": chunk_ids, "follow_ups": []}
     return json.dumps(payload)
 
 

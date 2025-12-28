@@ -39,9 +39,23 @@ class CitationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CitationGroupOut(BaseModel):
+    source_id: UUID
+    source_title: str | None
+    citations: list[CitationOut]
+    model_config = ConfigDict(from_attributes=True)
+
+
 class QueryResponse(BaseModel):
     answer: str
     citations: list[CitationOut]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QueryGroupedResponse(BaseModel):
+    answer: str
+    citations: list[CitationOut]
+    citation_groups: list[CitationGroupOut]
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -79,4 +93,12 @@ class QueryVerifiedResponse(BaseModel):
     answer: str
     citations: list[CitationOut]
     claims: list[ClaimOut]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QueryVerifiedGroupedResponse(BaseModel):
+    answer: str
+    citations: list[CitationOut]
+    claims: list[ClaimOut]
+    citation_groups: list[CitationGroupOut]
     model_config = ConfigDict(from_attributes=True)

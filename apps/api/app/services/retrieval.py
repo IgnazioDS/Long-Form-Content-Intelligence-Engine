@@ -32,6 +32,28 @@ def _apply_source_filter(stmt: Select, source_ids: list[UUID] | None) -> Select:
     return stmt.where(Chunk.source_id.in_(source_ids))
 
 
+def _upsert_candidate(
+    results: dict[UUID, RetrievedChunk],
+    row: object,
+    score: float,
+) -> None:
+    chunk_id = getattr(row, "id")
+    existing = results.get(chunk_id)
+    if existing:
+        if score > existing.score:
+            existing.score = score
+        return
+    results[chunk_id] = RetrievedChunk(
+        chunk_id=chunk_id,
+        source_id=getattr(row, "source_id"),
+        source_title=getattr(row, "title"),
+        page_start=getattr(row, "page_start"),
+        page_end=getattr(row, "page_end"),
+        text=getattr(row, "text"),
+        score=score,
+    )
+
+
 def _tokenize(text: str) -> set[str]:
     return {match.group(0) for match in _TOKEN_RE.finditer(text.casefold())}
 
@@ -105,71 +127,94 @@ def retrieve_candidates(
     query_embedding: list[float],
     source_ids: list[UUID] | None,
     rerank: bool | None = None,
+    per_source_limit: int | None = None,
 ) -> list[RetrievedChunk]:
     vector_distance = Chunk.embedding.cosine_distance(query_embedding)
-    vector_stmt = (
-        select(
-            Chunk.id,
-            Chunk.source_id,
-            Source.title,
-            Chunk.page_start,
-            Chunk.page_end,
-            Chunk.text,
-            vector_distance.label("distance"),
-        )
-        .join(Source, Source.id == Chunk.source_id)
-    )
-    vector_stmt = _apply_source_filter(vector_stmt, source_ids)
-    vector_stmt = vector_stmt.order_by(vector_distance).limit(30)
-
+    results: dict[UUID, RetrievedChunk] = {}
     ts_query = func.plainto_tsquery("english", question)
     rank = func.ts_rank(Chunk.tsv, ts_query)
-    fts_stmt = (
-        select(
-            Chunk.id,
-            Chunk.source_id,
-            Source.title,
-            Chunk.page_start,
-            Chunk.page_end,
-            Chunk.text,
-            rank.label("rank"),
-        )
-        .join(Source, Source.id == Chunk.source_id)
-        .where(Chunk.tsv.op("@@")(ts_query))
-    )
-    fts_stmt = _apply_source_filter(fts_stmt, source_ids)
-    fts_stmt = fts_stmt.order_by(rank.desc()).limit(30)
 
-    results: dict[UUID, RetrievedChunk] = {}
+    per_source = per_source_limit if per_source_limit and per_source_limit > 0 else None
+    if source_ids and per_source:
+        for source_id in source_ids:
+            vector_stmt = (
+                select(
+                    Chunk.id,
+                    Chunk.source_id,
+                    Source.title,
+                    Chunk.page_start,
+                    Chunk.page_end,
+                    Chunk.text,
+                    vector_distance.label("distance"),
+                )
+                .join(Source, Source.id == Chunk.source_id)
+                .where(Chunk.source_id == source_id)
+                .order_by(vector_distance)
+                .limit(per_source)
+            )
+            fts_stmt = (
+                select(
+                    Chunk.id,
+                    Chunk.source_id,
+                    Source.title,
+                    Chunk.page_start,
+                    Chunk.page_end,
+                    Chunk.text,
+                    rank.label("rank"),
+                )
+                .join(Source, Source.id == Chunk.source_id)
+                .where(Chunk.tsv.op("@@")(ts_query))
+                .where(Chunk.source_id == source_id)
+                .order_by(rank.desc())
+                .limit(per_source)
+            )
 
-    for row in session.execute(vector_stmt):
-        score = 1 - float(row.distance)
-        results[row.id] = RetrievedChunk(
-            chunk_id=row.id,
-            source_id=row.source_id,
-            source_title=row.title,
-            page_start=row.page_start,
-            page_end=row.page_end,
-            text=row.text,
-            score=score,
-        )
+            for row in session.execute(vector_stmt):
+                score = 1 - float(row.distance)
+                _upsert_candidate(results, row, score)
 
-    for row in session.execute(fts_stmt):
-        score = float(row.rank)
-        existing = results.get(row.id)
-        if existing:
-            if score > existing.score:
-                existing.score = score
-            continue
-        results[row.id] = RetrievedChunk(
-            chunk_id=row.id,
-            source_id=row.source_id,
-            source_title=row.title,
-            page_start=row.page_start,
-            page_end=row.page_end,
-            text=row.text,
-            score=score,
+            for row in session.execute(fts_stmt):
+                score = float(row.rank)
+                _upsert_candidate(results, row, score)
+    else:
+        vector_stmt = (
+            select(
+                Chunk.id,
+                Chunk.source_id,
+                Source.title,
+                Chunk.page_start,
+                Chunk.page_end,
+                Chunk.text,
+                vector_distance.label("distance"),
+            )
+            .join(Source, Source.id == Chunk.source_id)
         )
+        vector_stmt = _apply_source_filter(vector_stmt, source_ids)
+        vector_stmt = vector_stmt.order_by(vector_distance).limit(30)
+
+        fts_stmt = (
+            select(
+                Chunk.id,
+                Chunk.source_id,
+                Source.title,
+                Chunk.page_start,
+                Chunk.page_end,
+                Chunk.text,
+                rank.label("rank"),
+            )
+            .join(Source, Source.id == Chunk.source_id)
+            .where(Chunk.tsv.op("@@")(ts_query))
+        )
+        fts_stmt = _apply_source_filter(fts_stmt, source_ids)
+        fts_stmt = fts_stmt.order_by(rank.desc()).limit(30)
+
+        for row in session.execute(vector_stmt):
+            score = 1 - float(row.distance)
+            _upsert_candidate(results, row, score)
+
+        for row in session.execute(fts_stmt):
+            score = float(row.rank)
+            _upsert_candidate(results, row, score)
 
     sorted_chunks = sorted(results.values(), key=lambda item: item.score, reverse=True)
     rerank_enabled = settings.rerank_enabled if rerank is None else rerank

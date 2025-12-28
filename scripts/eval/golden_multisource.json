@@ -1,0 +1,47 @@
+{
+  "fixtures": ["sample.pdf", "second.pdf"],
+  "cases": [
+    {
+      "id": "multi-001",
+      "question": "Which engine is described and what deployment region is listed?",
+      "expected_behavior": "ANSWERABLE",
+      "min_citations": 2,
+      "require_sources": ["sample.pdf", "second.pdf"]
+    },
+    {
+      "id": "multi-002",
+      "question": "What is the document used for and what support email is provided?",
+      "expected_behavior": "ANSWERABLE",
+      "min_citations": 2,
+      "require_sources": ["sample.pdf", "second.pdf"]
+    },
+    {
+      "id": "multi-003",
+      "question": "Which topics are described and what service tier is listed?",
+      "expected_behavior": "ANSWERABLE",
+      "min_citations": 2,
+      "require_sources": ["sample.pdf", "second.pdf"]
+    },
+    {
+      "id": "multi-004",
+      "question": "What behavior is described as deterministic and what response format is default?",
+      "expected_behavior": "ANSWERABLE",
+      "min_citations": 2,
+      "require_sources": ["sample.pdf", "second.pdf"]
+    },
+    {
+      "id": "multi-005",
+      "question": "What does the sample document describe and which region is listed?",
+      "expected_behavior": "ANSWERABLE",
+      "min_citations": 2,
+      "require_sources": ["sample.pdf", "second.pdf"]
+    },
+    {
+      "id": "multi-006",
+      "question": "Which engine is referenced and what support email is listed?",
+      "expected_behavior": "ANSWERABLE",
+      "min_citations": 2,
+      "require_sources": ["sample.pdf", "second.pdf"]
+    }
+  ]
+}

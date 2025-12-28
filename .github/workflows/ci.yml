@@ -60,6 +60,11 @@ jobs:
           EVAL_READY_TIMEOUT_SECONDS: "120"
           EVAL_HTTP_TIMEOUT_SECONDS: "45"
         run: python3 scripts/eval/run_eval_verified.py --dataset scripts/eval/golden_verified_conflicts.json --thresholds scripts/eval/thresholds.json
+      - name: Eval multisource
+        env:
+          EVAL_READY_TIMEOUT_SECONDS: "120"
+          EVAL_HTTP_TIMEOUT_SECONDS: "45"
+        run: python3 scripts/eval/run_eval_multisource.py --thresholds scripts/eval/thresholds.json
       - name: Upload eval reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -70,6 +75,8 @@ jobs:
             scripts/eval/out/eval_results.json
             scripts/eval/out/eval_verified_report.md
             scripts/eval/out/eval_verified_results.json
+            scripts/eval/out/eval_multisource_report.md
+            scripts/eval/out/eval_multisource_results.json
       - name: Tear down stack
         if: always()
         run: docker compose down -v

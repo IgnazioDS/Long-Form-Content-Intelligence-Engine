@@ -158,6 +158,10 @@ Eval runners also respect:
    ```bash
    make eval-verified-conflicts
    ```
+5. Run the multisource eval harness:
+   ```bash
+   make eval-multisource
+   ```
 
 Thresholds live in `scripts/eval/thresholds.json`. Override them explicitly:
 ```bash
@@ -165,7 +169,7 @@ python3 scripts/eval/run_eval.py --thresholds scripts/eval/thresholds.json
 python3 scripts/eval/run_eval_verified.py --thresholds scripts/eval/thresholds.json
 ```
 
-CI enforces the quality gates in `scripts/eval/thresholds.json` for both eval runs.
+CI enforces the quality gates in `scripts/eval/thresholds.json` for all eval runs.
 
 The conflicts dataset uses `scripts/eval/golden_verified_conflicts.json` and fixture
 `scripts/fixtures/conflicts.pdf` with profile `conflicts`. Its thresholds live under
@@ -175,17 +179,25 @@ Conflict thresholds are selected when the dataset profile is `conflicts` or
 filename includes `conflicts`. If a conflicts profile is set without a fixture, the
 runner defaults to `conflicts.pdf`.
 
+The multisource dataset uses `scripts/eval/golden_multisource.json` with fixtures
+`scripts/fixtures/sample.pdf` and `scripts/fixtures/second.pdf`. Its thresholds live
+under `eval_multisource` in `scripts/eval/thresholds.json`.
+
 Outputs are written to:
 - `scripts/eval/out/eval_results.json`
 - `scripts/eval/out/eval_report.md`
 - `scripts/eval/out/eval_verified_results.json`
 - `scripts/eval/out/eval_verified_report.md`
+- `scripts/eval/out/eval_multisource_results.json`
+- `scripts/eval/out/eval_multisource_report.md`
 
 ## Notes
 
 - Retrieval uses a lightweight reranker after hybrid search to boost relevance before
   selecting the final chunks for RAG. It is enabled by default and can be disabled by
   setting `RERANK_ENABLED=false`. Fake provider runs deterministically for eval/smoke.
+- Grouped query endpoints apply source-aware retrieval when `PER_SOURCE_RETRIEVAL_LIMIT`
+  is set and `source_ids` are provided.
 - Ingestion happens asynchronously via Celery. Source status transitions: `UPLOADED` → `PROCESSING` → `READY` or `FAILED`.
 - If a query cannot be answered with retrieved context, the API returns `insufficient evidence` with suggested follow-ups.
 - `/query` returns answers with citations only; `/query/verified` adds claim-level verdicts and evidence snippets.
