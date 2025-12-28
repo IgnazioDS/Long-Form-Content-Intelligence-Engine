@@ -46,9 +46,15 @@ jobs:
           docker compose logs api
           exit 1
       - name: Eval
-        run: make eval
+        env:
+          EVAL_READY_TIMEOUT_SECONDS: "120"
+          EVAL_HTTP_TIMEOUT_SECONDS: "45"
+        run: python3 scripts/eval/run_eval.py --thresholds scripts/eval/thresholds.json
       - name: Eval verified
-        run: make eval-verified
+        env:
+          EVAL_READY_TIMEOUT_SECONDS: "120"
+          EVAL_HTTP_TIMEOUT_SECONDS: "45"
+        run: python3 scripts/eval/run_eval_verified.py --thresholds scripts/eval/thresholds.json
       - name: Upload eval reports on failure
         if: failure()
         uses: actions/upload-artifact@v4

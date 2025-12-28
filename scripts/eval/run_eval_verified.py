@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -25,6 +27,10 @@ from _common.api_client import (  # noqa: E402
 DATASET_PATH = Path(__file__).resolve().parent / "golden_verified.json"
 OUT_DIR = Path(__file__).resolve().parent / "out"
 THRESHOLDS_PATH = Path(__file__).resolve().parent / "thresholds.json"
+DEFAULT_READY_TIMEOUT_SECONDS = 60
+DEFAULT_HTTP_TIMEOUT_SECONDS = 30
+POST_RETRY_LIMIT = 3
+RETRY_BACKOFF_SECONDS = 0.5
 
 GENERIC_ANSWER_PHRASES = (
     "insufficient evidence",
@@ -58,6 +64,16 @@ EVAL_VERIFIED_GATE_DEFINITIONS = (
     ("avg_claims_per_answerable_min", "avg_claims_per_answerable", ">="),
     ("unsupported_rate_max", "unsupported_rate", "<="),
 )
+
+
+def get_env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
 
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
@@ -147,6 +163,36 @@ def is_score_valid(score: Any) -> bool:
     return 0.0 <= float(score) <= 1.0
 
 
+def post_with_retries(
+    client: httpx.Client,
+    url: str,
+    payload: dict[str, Any],
+    max_attempts: int = POST_RETRY_LIMIT,
+) -> httpx.Response:
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = client.post(url, json=payload)
+        except httpx.TimeoutException as exc:
+            last_error = exc
+        else:
+            if response.status_code >= 500:
+                if attempt == max_attempts:
+                    response.raise_for_status()
+                else:
+                    time.sleep(RETRY_BACKOFF_SECONDS)
+                    continue
+            response.raise_for_status()
+            return response
+
+        if attempt < max_attempts:
+            time.sleep(RETRY_BACKOFF_SECONDS)
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("Failed to POST after retries")
+
+
 def evaluate_quality_gates(
     metrics: dict[str, Any],
     thresholds: dict[str, Any],
@@ -194,8 +240,7 @@ def evaluate_case(
     min_claims = parse_int(case.get("min_claims"), 1 if expected == "ANSWERABLE" else 0)
 
     query_payload = {"question": question, "source_ids": [source_id]}
-    response = client.post(f"{base_url}/query/verified", json=query_payload)
-    response.raise_for_status()
+    response = post_with_retries(client, f"{base_url}/query/verified", query_payload)
     payload = cast(dict[str, Any], response.json())
 
     answer = str(payload.get("answer", "")).strip()
@@ -376,7 +421,7 @@ def evaluate_case(
 
 
 def resolve_source_id(
-    client: httpx.Client, base_url: str, pdf_path: Path
+    client: httpx.Client, base_url: str, pdf_path: Path, timeout_s: int
 ) -> tuple[str, dict[str, Any]]:
     sources = list_sources(client, base_url)
     existing = find_source_by_filename(sources, pdf_path.name)
@@ -384,11 +429,11 @@ def resolve_source_id(
         return str(existing["id"]), existing
 
     if existing and existing.get("status") in {"UPLOADED", "PROCESSING"}:
-        ready = wait_for_source(client, base_url, str(existing["id"]))
+        ready = wait_for_source(client, base_url, str(existing["id"]), timeout_s=timeout_s)
         return str(ready["id"]), ready
 
     payload = upload_source(client, base_url, pdf_path, title="Eval Fixture: sample.pdf")
-    ready = wait_for_source(client, base_url, str(payload["id"]))
+    ready = wait_for_source(client, base_url, str(payload["id"]), timeout_s=timeout_s)
     return str(ready["id"]), ready
 
 
@@ -475,17 +520,24 @@ def main() -> None:
     if not thresholds_path.exists():
         raise FileNotFoundError(f"Thresholds not found: {thresholds_path}")
 
+    ready_timeout = get_env_int(
+        "EVAL_READY_TIMEOUT_SECONDS", DEFAULT_READY_TIMEOUT_SECONDS
+    )
+    http_timeout = get_env_int("EVAL_HTTP_TIMEOUT_SECONDS", DEFAULT_HTTP_TIMEOUT_SECONDS)
+
     pdf_path = fixture_pdf_path()
     base_url = get_base_url(args.base_url)
 
     cases = load_cases(dataset_path)
     thresholds = load_thresholds(thresholds_path, "eval_verified")
 
-    with httpx.Client(timeout=30.0) as client:
+    with httpx.Client(timeout=float(http_timeout)) as client:
         health = client.get(f"{base_url}/health")
         health.raise_for_status()
 
-        source_id, source_payload = resolve_source_id(client, base_url, pdf_path)
+        source_id, source_payload = resolve_source_id(
+            client, base_url, pdf_path, timeout_s=ready_timeout
+        )
         if source_payload.get("status") != "READY":
             raise RuntimeError("Source did not reach READY status")
 

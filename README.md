@@ -138,6 +138,9 @@ make smoke
 ## Evaluation
 
 Recommended env: `AI_PROVIDER=fake` and `DEBUG=true` (needed for citation validation).
+Eval runners also respect:
+- `EVAL_READY_TIMEOUT_SECONDS` (default: 60) for source ingest readiness.
+- `EVAL_HTTP_TIMEOUT_SECONDS` (default: 30) for HTTP client timeouts.
 
 1. Start the stack:
    ```bash
