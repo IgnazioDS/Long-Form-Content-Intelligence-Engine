@@ -15,6 +15,7 @@ import httpx
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from _common.api_client import (  # noqa: E402
+    delete_source,
     find_source_by_filename,
     fixture_pdf_path,
     get_base_url,
@@ -488,6 +489,17 @@ def resolve_source_id(
     client: httpx.Client, base_url: str, pdf_path: Path, timeout_s: int
 ) -> tuple[str, dict[str, Any]]:
     sources = list_sources(client, base_url)
+    ready = next(
+        (
+            item
+            for item in sources
+            if item.get("original_filename") == pdf_path.name
+            and item.get("status") == "READY"
+        ),
+        None,
+    )
+    if ready:
+        return str(ready["id"]), ready
     existing = find_source_by_filename(sources, pdf_path.name)
     if existing and existing.get("status") == "READY":
         return str(existing["id"]), existing
@@ -495,9 +507,16 @@ def resolve_source_id(
     if existing and existing.get("status") in {"UPLOADED", "PROCESSING"}:
         ready = wait_for_source(client, base_url, str(existing["id"]), timeout_s=timeout_s)
         return str(ready["id"]), ready
+    if existing and existing.get("status") == "FAILED":
+        delete_source(client, base_url, str(existing["id"]))
 
     payload = upload_source(client, base_url, pdf_path, title="Eval Fixture: sample.pdf")
-    ready = wait_for_source(client, base_url, str(payload["id"]), timeout_s=timeout_s)
+    try:
+        ready = wait_for_source(client, base_url, str(payload["id"]), timeout_s=timeout_s)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"{exc} (check worker logs and OPENAI_API_KEY/AI_PROVIDER settings)"
+        ) from exc
     return str(ready["id"]), ready
 
 

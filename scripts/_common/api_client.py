@@ -81,6 +81,13 @@ def upload_source(
         return cast(dict[str, Any], response.json())
 
 
+def delete_source(client: httpx.Client, base_url: str, source_id: str) -> None:
+    response = client.delete(f"{base_url}/sources/{source_id}")
+    if response.status_code == 404:
+        return
+    response.raise_for_status()
+
+
 def get_debug_chunk_ids(
     client: httpx.Client, base_url: str, source_id: str
 ) -> list[str]:
