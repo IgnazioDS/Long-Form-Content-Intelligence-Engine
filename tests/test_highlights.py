@@ -7,6 +7,7 @@ from pytest import MonkeyPatch
 
 from apps.api.app.schemas import ClaimOut, EvidenceOut, EvidenceRelation, Verdict
 from apps.api.app.services import highlights
+from apps.api.app.services.rag import build_snippet
 from apps.api.app.services.retrieval import RetrievedChunk
 from packages.shared_db.settings import settings
 
@@ -32,6 +33,9 @@ def test_openai_highlight_uses_full_text(monkeypatch: MonkeyPatch) -> None:
     chunk_text = "alpha beta gamma delta"
     char_start = 250
     chunk = _make_chunk(chunk_id, chunk_text, char_start=char_start)
+    snippet = build_snippet(chunk_text)
+    assert snippet.snippet_start is not None
+    assert snippet.snippet_end is not None
     start = chunk_text.index("gamma")
     end = start + len("gamma")
 
@@ -68,6 +72,8 @@ def test_openai_highlight_uses_full_text(monkeypatch: MonkeyPatch) -> None:
                     chunk_id=chunk_id,
                     relation=EvidenceRelation.SUPPORTS,
                     snippet="gamma",
+                    snippet_start=snippet.snippet_start,
+                    snippet_end=snippet.snippet_end,
                 )
             ],
         )
@@ -77,19 +83,24 @@ def test_openai_highlight_uses_full_text(monkeypatch: MonkeyPatch) -> None:
         settings.ai_provider = original_provider
 
     evidence = highlighted[0].evidence[0]
+    assert evidence.snippet_start == snippet.snippet_start
+    assert evidence.snippet_end == snippet.snippet_end
     assert evidence.highlight_start == start
     assert evidence.highlight_end == end
     assert evidence.highlight_text == chunk_text[start:end]
     assert evidence.highlight_text != chunk_text[start:end].upper()
     assert len(evidence.highlight_text) == end - start
-    assert evidence.absolute_start == char_start + start
-    assert evidence.absolute_end == char_start + end
+    assert evidence.absolute_start == char_start + snippet.snippet_start
+    assert evidence.absolute_end == char_start + snippet.snippet_end
 
 
 def test_empty_provider_defaults_to_openai(monkeypatch: MonkeyPatch) -> None:
     chunk_id = uuid.UUID("00000000-0000-0000-0000-000000000004")
     chunk_text = "alpha beta gamma"
     chunk = _make_chunk(chunk_id, chunk_text)
+    snippet = build_snippet(chunk_text)
+    assert snippet.snippet_start is not None
+    assert snippet.snippet_end is not None
     start = chunk_text.index("beta")
     end = start + len("beta")
 
@@ -124,6 +135,8 @@ def test_empty_provider_defaults_to_openai(monkeypatch: MonkeyPatch) -> None:
                     chunk_id=chunk_id,
                     relation=EvidenceRelation.SUPPORTS,
                     snippet="beta",
+                    snippet_start=snippet.snippet_start,
+                    snippet_end=snippet.snippet_end,
                 )
             ],
         )
@@ -132,6 +145,8 @@ def test_empty_provider_defaults_to_openai(monkeypatch: MonkeyPatch) -> None:
         settings.ai_provider = original_provider
 
     evidence = highlighted[0].evidence[0]
+    assert evidence.snippet_start == snippet.snippet_start
+    assert evidence.snippet_end == snippet.snippet_end
     assert evidence.highlight_start == start
     assert evidence.highlight_end == end
     assert evidence.highlight_text == chunk_text[start:end]
@@ -144,6 +159,9 @@ def test_openai_span_out_of_bounds_falls_back(monkeypatch: MonkeyPatch) -> None:
     token = "gamma"
     chunk_text = f"alpha {token} delta " + ("x" * (highlights._CHUNK_TEXT_LIMIT + 50))
     chunk = _make_chunk(chunk_id, chunk_text)
+    snippet = build_snippet(chunk_text)
+    assert snippet.snippet_start is not None
+    assert snippet.snippet_end is not None
     too_late_start = highlights._CHUNK_TEXT_LIMIT + 10
     too_late_end = too_late_start + 5
 
@@ -174,6 +192,8 @@ def test_openai_span_out_of_bounds_falls_back(monkeypatch: MonkeyPatch) -> None:
                     chunk_id=chunk_id,
                     relation=EvidenceRelation.SUPPORTS,
                     snippet=token,
+                    snippet_start=snippet.snippet_start,
+                    snippet_end=snippet.snippet_end,
                 )
             ],
         )
@@ -182,6 +202,8 @@ def test_openai_span_out_of_bounds_falls_back(monkeypatch: MonkeyPatch) -> None:
         settings.ai_provider = original_provider
 
     evidence = highlighted[0].evidence[0]
+    assert evidence.snippet_start == snippet.snippet_start
+    assert evidence.snippet_end == snippet.snippet_end
     assert evidence.highlight_start is not None
     assert evidence.highlight_end is not None
     assert evidence.highlight_text is not None
@@ -198,6 +220,9 @@ def test_fake_highlight_indices_match_full_text() -> None:
     chunk_text = "The policy term is three years."
     char_start = 1000
     chunk = _make_chunk(chunk_id, chunk_text, char_start=char_start)
+    snippet = build_snippet(chunk_text)
+    assert snippet.snippet_start is not None
+    assert snippet.snippet_end is not None
 
     claim = ClaimOut(
         claim_text="The policy term is three years.",
@@ -209,6 +234,8 @@ def test_fake_highlight_indices_match_full_text() -> None:
                 chunk_id=chunk_id,
                 relation=EvidenceRelation.SUPPORTS,
                 snippet="The policy term is three years.",
+                snippet_start=snippet.snippet_start,
+                snippet_end=snippet.snippet_end,
             )
         ],
     )
@@ -221,6 +248,8 @@ def test_fake_highlight_indices_match_full_text() -> None:
         settings.ai_provider = original_provider
 
     evidence = highlighted[0].evidence[0]
+    assert evidence.snippet_start == snippet.snippet_start
+    assert evidence.snippet_end == snippet.snippet_end
     assert evidence.highlight_start is not None
     assert evidence.highlight_end is not None
     assert evidence.highlight_text is not None
@@ -230,5 +259,5 @@ def test_fake_highlight_indices_match_full_text() -> None:
         == chunk_text[evidence.highlight_start : evidence.highlight_end]
     )
     assert len(evidence.highlight_text) == evidence.highlight_end - evidence.highlight_start
-    assert evidence.absolute_start == char_start + evidence.highlight_start
-    assert evidence.absolute_end == char_start + evidence.highlight_end
+    assert evidence.absolute_start == char_start + evidence.snippet_start
+    assert evidence.absolute_end == char_start + evidence.snippet_end

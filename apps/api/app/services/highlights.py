@@ -5,6 +5,7 @@ import re
 from typing import Any
 
 from apps.api.app.schemas import ClaimHighlightOut, ClaimOut, EvidenceHighlightOut
+from apps.api.app.services.rag import compute_absolute_offsets
 from apps.api.app.services.retrieval import RetrievedChunk
 from packages.shared_db.openai_client import chat
 from packages.shared_db.settings import settings
@@ -181,25 +182,29 @@ def _apply_highlights_fake(
                         chunk_id=evidence.chunk_id,
                         relation=evidence.relation,
                         snippet=evidence.snippet,
+                        snippet_start=evidence.snippet_start,
+                        snippet_end=evidence.snippet_end,
                         highlight_start=None,
                         highlight_end=None,
                         highlight_text=None,
-                        absolute_start=None,
-                        absolute_end=None,
+                        absolute_start=evidence.absolute_start,
+                        absolute_end=evidence.absolute_end,
                     )
                 )
                 continue
             start, end, text = _highlight_from_text(claim.claim_text, chunk.text)
-            absolute_start = None
-            absolute_end = None
-            if start is not None and end is not None and chunk.char_start is not None:
-                absolute_start = chunk.char_start + start
-                absolute_end = chunk.char_start + end
+            snippet_start = evidence.snippet_start
+            snippet_end = evidence.snippet_end
+            absolute_start, absolute_end = compute_absolute_offsets(
+                chunk, snippet_start, snippet_end
+            )
             evidence_items.append(
                 EvidenceHighlightOut(
                     chunk_id=evidence.chunk_id,
                     relation=evidence.relation,
                     snippet=evidence.snippet,
+                    snippet_start=snippet_start,
+                    snippet_end=snippet_end,
                     highlight_start=start,
                     highlight_end=end,
                     highlight_text=text,
@@ -271,11 +276,13 @@ def add_highlights_to_claims(
                         chunk_id=evidence.chunk_id,
                         relation=evidence.relation,
                         snippet=evidence.snippet,
+                        snippet_start=evidence.snippet_start,
+                        snippet_end=evidence.snippet_end,
                         highlight_start=None,
                         highlight_end=None,
                         highlight_text=None,
-                        absolute_start=None,
-                        absolute_end=None,
+                        absolute_start=evidence.absolute_start,
+                        absolute_end=evidence.absolute_end,
                     )
                 )
                 continue
@@ -304,21 +311,19 @@ def add_highlights_to_claims(
                 highlight_start = start
                 highlight_end = end
                 highlight_text = text
-            absolute_start = None
-            absolute_end = None
-            if (
-                highlight_start is not None
-                and highlight_end is not None
-                and chunk.char_start is not None
-            ):
-                absolute_start = chunk.char_start + highlight_start
-                absolute_end = chunk.char_start + highlight_end
+            snippet_start = evidence.snippet_start
+            snippet_end = evidence.snippet_end
+            absolute_start, absolute_end = compute_absolute_offsets(
+                chunk, snippet_start, snippet_end
+            )
 
             evidence_items.append(
                 EvidenceHighlightOut(
                     chunk_id=evidence.chunk_id,
                     relation=evidence.relation,
                     snippet=evidence.snippet,
+                    snippet_start=snippet_start,
+                    snippet_end=snippet_end,
                     highlight_start=highlight_start,
                     highlight_end=highlight_end,
                     highlight_text=highlight_text,

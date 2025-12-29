@@ -36,6 +36,10 @@ class CitationOut(BaseModel):
     page_start: int | None
     page_end: int | None
     snippet: str
+    snippet_start: int | None = None
+    snippet_end: int | None = None
+    absolute_start: int | None = None
+    absolute_end: int | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -77,6 +81,10 @@ class EvidenceOut(BaseModel):
     chunk_id: UUID
     relation: EvidenceRelation
     snippet: str
+    snippet_start: int | None = None
+    snippet_end: int | None = None
+    absolute_start: int | None = None
+    absolute_end: int | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -84,11 +92,13 @@ class EvidenceHighlightOut(BaseModel):
     chunk_id: UUID
     relation: EvidenceRelation
     snippet: str
+    snippet_start: int | None = None
+    snippet_end: int | None = None
     highlight_start: int | None
     highlight_end: int | None
     highlight_text: str | None
-    absolute_start: int | None
-    absolute_end: int | None
+    absolute_start: int | None = None
+    absolute_end: int | None = None
     model_config = ConfigDict(from_attributes=True)
 
 

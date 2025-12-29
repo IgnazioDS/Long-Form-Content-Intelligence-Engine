@@ -172,6 +172,16 @@ Eval runners also respect:
    AI_PROVIDER=openai DEBUG=true OPENAI_API_KEY=... docker compose up --build -d
    make eval-openai-smoke
    ```
+7. Run the evidence integrity harness:
+   ```bash
+   make eval-evidence-integrity
+   ```
+   Requires `AI_PROVIDER=openai`, `DEBUG=true`, and `OPENAI_API_KEY` (exported or set in `.env`).
+   Example:
+   ```bash
+   AI_PROVIDER=openai DEBUG=true OPENAI_API_KEY=... docker compose up --build -d
+   make eval-evidence-integrity
+   ```
 
 Thresholds live in `scripts/eval/thresholds.json`. Override them explicitly:
 ```bash
@@ -207,6 +217,8 @@ Outputs are written to:
 - `scripts/eval/out/eval_multisource_report.md`
 - `tests/eval/out/eval_openai_smoke_results.json`
 - `tests/eval/out/eval_openai_smoke_report.md`
+- `tests/eval/out/eval_evidence_integrity_results.json`
+- `tests/eval/out/eval_evidence_integrity_report.md`
 
 ## Notes
 
@@ -220,7 +232,9 @@ Outputs are written to:
 - `/query` returns answers with citations only; `/query/verified` adds claim-level verdicts and evidence snippets.
 - `/query/verified/highlights` adds evidence highlight spans (start/end offsets and highlight_text) per evidence item.
 - `/query/verified/grouped/highlights` combines highlights with grouped citations.
+- Citation and evidence snippets include snippet_start/snippet_end offsets relative to full chunk text.
+  When chunk char offsets are available, absolute_start/absolute_end provide offsets within the
+  original source text; fields may be null if spans are unavailable.
 - Verification runs deterministically when `AI_PROVIDER=fake`.
 - Highlight spans are best-effort and refer to indices in the full chunk text stored for the source.
-  When chunk char offsets are available, absolute_start/absolute_end provide offsets within the
-  original source text; fields may be null if no span is found.
+  Highlight spans remain claim-specific and are independent from snippet offsets.

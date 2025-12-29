@@ -103,12 +103,18 @@ def get_debug_chunk_ids(
 
 
 def get_debug_chunk_text(client: httpx.Client, base_url: str, chunk_id: str) -> str:
-    response = client.get(f"{base_url}/debug/chunks/{chunk_id}")
-    if response.status_code == 404:
-        raise RuntimeError("DEBUG=true is required to access debug endpoints")
-    response.raise_for_status()
-    payload = cast(dict[str, Any], response.json())
+    payload = get_debug_chunk_info(client, base_url, chunk_id)
     text = payload.get("text")
     if not isinstance(text, str):
         raise ValueError("Invalid debug chunk response")
     return text
+
+
+def get_debug_chunk_info(
+    client: httpx.Client, base_url: str, chunk_id: str
+) -> dict[str, Any]:
+    response = client.get(f"{base_url}/debug/chunks/{chunk_id}")
+    if response.status_code == 404:
+        raise RuntimeError("DEBUG=true is required to access debug endpoints")
+    response.raise_for_status()
+    return cast(dict[str, Any], response.json())

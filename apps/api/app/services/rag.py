@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Any, cast
 from uuid import UUID
 
@@ -118,8 +119,58 @@ def generate_answer(
     return "insufficient evidence. Suggested follow-ups: narrow the question.", suggested_ids
 
 
-def build_snippet(text: str, max_len: int = 280) -> str:
-    cleaned = " ".join(text.split())
-    if len(cleaned) <= max_len:
-        return cleaned
-    return cleaned[: max_len - 3] + "..."
+@dataclass(frozen=True)
+class SnippetResult:
+    snippet_text: str
+    snippet_start: int | None
+    snippet_end: int | None
+
+
+def build_snippet(text: str, max_len: int = 280) -> SnippetResult:
+    start = None
+    for idx, ch in enumerate(text):
+        if not ch.isspace():
+            start = idx
+            break
+    if start is None:
+        return SnippetResult(snippet_text="", snippet_start=None, snippet_end=None)
+
+    end = len(text)
+    while end > start and text[end - 1].isspace():
+        end -= 1
+    if end <= start:
+        return SnippetResult(snippet_text="", snippet_start=None, snippet_end=None)
+
+    max_end = min(end, start + max_len)
+    snippet_end = max_end
+    while snippet_end > start and text[snippet_end - 1].isspace():
+        snippet_end -= 1
+    if snippet_end <= start:
+        snippet_end = max_end
+
+    return SnippetResult(
+        snippet_text=text[start:snippet_end],
+        snippet_start=start,
+        snippet_end=snippet_end,
+    )
+
+
+def compute_absolute_offsets(
+    chunk: RetrievedChunk,
+    snippet_start: int | None,
+    snippet_end: int | None,
+) -> tuple[int | None, int | None]:
+    if snippet_start is None or snippet_end is None:
+        return None, None
+    if chunk.char_start is None:
+        return None, None
+    absolute_start = chunk.char_start + snippet_start
+    absolute_end = chunk.char_start + snippet_end
+    if absolute_end <= absolute_start:
+        return None, None
+    if chunk.char_end is not None and absolute_end > chunk.char_end:
+        return None, None
+    max_end = chunk.char_start + len(chunk.text)
+    if absolute_end > max_end:
+        return None, None
+    return absolute_start, absolute_end

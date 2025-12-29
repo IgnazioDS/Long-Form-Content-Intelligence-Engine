@@ -90,4 +90,10 @@ def debug_get_chunk(
     chunk = session.get(Chunk, chunk_id)
     if chunk is None:
         raise HTTPException(status_code=404, detail="Chunk not found")
-    return {"chunk_id": str(chunk.id), "source_id": str(chunk.source_id), "text": chunk.text}
+    return {
+        "chunk_id": str(chunk.id),
+        "source_id": str(chunk.source_id),
+        "text": chunk.text,
+        "char_start": chunk.char_start,
+        "char_end": chunk.char_end,
+    }

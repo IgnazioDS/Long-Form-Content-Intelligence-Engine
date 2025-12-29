@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from apps.api.app.schemas import ClaimOut, EvidenceOut, EvidenceRelation, Verdict
-from apps.api.app.services.rag import build_snippet
+from apps.api.app.services.rag import build_snippet, compute_absolute_offsets
 from apps.api.app.services.retrieval import RetrievedChunk
 from packages.shared_db.openai_client import chat
 from packages.shared_db.settings import settings
@@ -307,22 +307,38 @@ def _build_evidence(
         chunk = chunk_lookup.get(chunk_id)
         if not chunk:
             continue
+        snippet = build_snippet(chunk.text)
+        absolute_start, absolute_end = compute_absolute_offsets(
+            chunk, snippet.snippet_start, snippet.snippet_end
+        )
         evidence.append(
             EvidenceOut(
                 chunk_id=chunk.chunk_id,
                 relation=EvidenceRelation.SUPPORTS,
-                snippet=build_snippet(chunk.text),
+                snippet=snippet.snippet_text,
+                snippet_start=snippet.snippet_start,
+                snippet_end=snippet.snippet_end,
+                absolute_start=absolute_start,
+                absolute_end=absolute_end,
             )
         )
     for chunk_id in contradict_ids[:max_contradict]:
         chunk = chunk_lookup.get(chunk_id)
         if not chunk:
             continue
+        snippet = build_snippet(chunk.text)
+        absolute_start, absolute_end = compute_absolute_offsets(
+            chunk, snippet.snippet_start, snippet.snippet_end
+        )
         evidence.append(
             EvidenceOut(
                 chunk_id=chunk.chunk_id,
                 relation=EvidenceRelation.CONTRADICTS,
-                snippet=build_snippet(chunk.text),
+                snippet=snippet.snippet_text,
+                snippet_start=snippet.snippet_start,
+                snippet_end=snippet.snippet_end,
+                absolute_start=absolute_start,
+                absolute_end=absolute_end,
             )
         )
     return evidence

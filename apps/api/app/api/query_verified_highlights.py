@@ -15,7 +15,7 @@ from apps.api.app.schemas import (
 )
 from apps.api.app.security import require_api_key
 from apps.api.app.services.highlights import add_highlights_to_claims
-from apps.api.app.services.rag import build_snippet, generate_answer
+from apps.api.app.services.rag import build_snippet, compute_absolute_offsets, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
 from apps.api.app.services.verify import verify_answer
 from packages.shared_db.models import Answer, Query
@@ -62,6 +62,10 @@ def query_verified_highlights(
         chunk = chunk_lookup.get(chunk_id)
         if not chunk:
             continue
+        snippet = build_snippet(chunk.text)
+        absolute_start, absolute_end = compute_absolute_offsets(
+            chunk, snippet.snippet_start, snippet.snippet_end
+        )
         citations.append(
             CitationOut(
                 chunk_id=chunk.chunk_id,
@@ -69,7 +73,11 @@ def query_verified_highlights(
                 source_title=chunk.source_title,
                 page_start=chunk.page_start,
                 page_end=chunk.page_end,
-                snippet=build_snippet(chunk.text),
+                snippet=snippet.snippet_text,
+                snippet_start=snippet.snippet_start,
+                snippet_end=snippet.snippet_end,
+                absolute_start=absolute_start,
+                absolute_end=absolute_end,
             )
         )
 
@@ -151,6 +159,10 @@ def query_verified_grouped_highlights(
         chunk = chunk_lookup.get(chunk_id)
         if not chunk:
             continue
+        snippet = build_snippet(chunk.text)
+        absolute_start, absolute_end = compute_absolute_offsets(
+            chunk, snippet.snippet_start, snippet.snippet_end
+        )
         citations.append(
             CitationOut(
                 chunk_id=chunk.chunk_id,
@@ -158,7 +170,11 @@ def query_verified_grouped_highlights(
                 source_title=chunk.source_title,
                 page_start=chunk.page_start,
                 page_end=chunk.page_end,
-                snippet=build_snippet(chunk.text),
+                snippet=snippet.snippet_text,
+                snippet_start=snippet.snippet_start,
+                snippet_end=snippet.snippet_end,
+                absolute_start=absolute_start,
+                absolute_end=absolute_end,
             )
         )
 
