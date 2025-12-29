@@ -79,6 +79,57 @@ def test_openai_highlight_uses_full_text(monkeypatch: MonkeyPatch) -> None:
     assert len(evidence.highlight_text) == end - start
 
 
+def test_empty_provider_defaults_to_openai(monkeypatch: MonkeyPatch) -> None:
+    chunk_id = uuid.UUID("00000000-0000-0000-0000-000000000004")
+    chunk_text = "alpha beta gamma"
+    chunk = _make_chunk(chunk_id, chunk_text)
+    start = chunk_text.index("beta")
+    end = start + len("beta")
+
+    def fake_chat(*args: object, **kwargs: object) -> str:
+        payload = {
+            "spans": [
+                {
+                    "chunk_id": str(chunk_id),
+                    "relation": "SUPPORTS",
+                    "start": start,
+                    "end": end,
+                }
+            ]
+        }
+        return json.dumps(payload)
+
+    def fake_fallback(*args: object, **kwargs: object) -> object:
+        raise AssertionError("unexpected fake highlight path")
+
+    original_provider = settings.ai_provider
+    settings.ai_provider = ""
+    try:
+        monkeypatch.setattr(highlights, "chat", fake_chat)
+        monkeypatch.setattr(highlights, "_apply_highlights_fake", fake_fallback)
+        claim = ClaimOut(
+            claim_text="beta",
+            verdict=Verdict.SUPPORTED,
+            support_score=0.9,
+            contradiction_score=0.0,
+            evidence=[
+                EvidenceOut(
+                    chunk_id=chunk_id,
+                    relation=EvidenceRelation.SUPPORTS,
+                    snippet="beta",
+                )
+            ],
+        )
+        highlighted = highlights.add_highlights_to_claims("Q", [claim], [chunk])
+    finally:
+        settings.ai_provider = original_provider
+
+    evidence = highlighted[0].evidence[0]
+    assert evidence.highlight_start == start
+    assert evidence.highlight_end == end
+    assert evidence.highlight_text == chunk_text[start:end]
+
+
 def test_openai_span_out_of_bounds_falls_back(monkeypatch: MonkeyPatch) -> None:
     chunk_id = uuid.UUID("00000000-0000-0000-0000-000000000003")
     token = "gamma"
