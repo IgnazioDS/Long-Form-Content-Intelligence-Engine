@@ -80,12 +80,31 @@ class EvidenceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class EvidenceHighlightOut(BaseModel):
+    chunk_id: UUID
+    relation: EvidenceRelation
+    snippet: str
+    highlight_start: int | None
+    highlight_end: int | None
+    highlight_text: str | None
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ClaimOut(BaseModel):
     claim_text: str
     verdict: Verdict
     support_score: float
     contradiction_score: float
     evidence: list[EvidenceOut]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ClaimHighlightOut(BaseModel):
+    claim_text: str
+    verdict: Verdict
+    support_score: float
+    contradiction_score: float
+    evidence: list[EvidenceHighlightOut]
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -100,5 +119,20 @@ class QueryVerifiedGroupedResponse(BaseModel):
     answer: str
     citations: list[CitationOut]
     claims: list[ClaimOut]
+    citation_groups: list[CitationGroupOut]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QueryVerifiedHighlightsResponse(BaseModel):
+    answer: str
+    citations: list[CitationOut]
+    claims: list[ClaimHighlightOut]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QueryVerifiedGroupedHighlightsResponse(BaseModel):
+    answer: str
+    citations: list[CitationOut]
+    claims: list[ClaimHighlightOut]
     citation_groups: list[CitationGroupOut]
     model_config = ConfigDict(from_attributes=True)

@@ -8,3 +8,4 @@ __pycache__/
 storage/
 *.egg-info/
 scripts/eval/out/
+.DS_Store

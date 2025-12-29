@@ -201,4 +201,7 @@ Outputs are written to:
 - Ingestion happens asynchronously via Celery. Source status transitions: `UPLOADED` → `PROCESSING` → `READY` or `FAILED`.
 - If a query cannot be answered with retrieved context, the API returns `insufficient evidence` with suggested follow-ups.
 - `/query` returns answers with citations only; `/query/verified` adds claim-level verdicts and evidence snippets.
+- `/query/verified/highlights` adds evidence highlight spans (start/end offsets and highlight_text) per evidence item.
+- `/query/verified/grouped/highlights` combines highlights with grouped citations.
 - Verification runs deterministically when `AI_PROVIDER=fake`.
+- Highlight spans are best-effort and refer to the chunk text used during verification; fields may be null if no span is found.

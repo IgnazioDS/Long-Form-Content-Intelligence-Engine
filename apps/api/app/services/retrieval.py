@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Select, func, select
@@ -34,10 +35,10 @@ def _apply_source_filter(stmt: Select, source_ids: list[UUID] | None) -> Select:
 
 def _upsert_candidate(
     results: dict[UUID, RetrievedChunk],
-    row: object,
+    row: Any,
     score: float,
 ) -> None:
-    chunk_id = getattr(row, "id")
+    chunk_id = row.id
     existing = results.get(chunk_id)
     if existing:
         if score > existing.score:
@@ -45,11 +46,11 @@ def _upsert_candidate(
         return
     results[chunk_id] = RetrievedChunk(
         chunk_id=chunk_id,
-        source_id=getattr(row, "source_id"),
-        source_title=getattr(row, "title"),
-        page_start=getattr(row, "page_start"),
-        page_end=getattr(row, "page_end"),
-        text=getattr(row, "text"),
+        source_id=row.source_id,
+        source_title=row.title,
+        page_start=row.page_start,
+        page_end=row.page_end,
+        text=row.text,
         score=score,
     )
 

@@ -6,7 +6,7 @@ from apps.api.app.schemas import CitationGroupOut, CitationOut
 
 
 def build_citation_groups(citations: list[CitationOut]) -> list[CitationGroupOut]:
-    groups: "OrderedDict[str, CitationGroupOut]" = OrderedDict()
+    groups: OrderedDict[str, CitationGroupOut] = OrderedDict()
     for citation in citations:
         source_key = str(citation.source_id)
         group = groups.get(source_key)
