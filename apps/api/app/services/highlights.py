@@ -285,6 +285,7 @@ def add_highlights_to_claims(
                 ):
                     highlight_start = start
                     highlight_end = end
+                    # Indices are defined over full chunk text; validate against prefix length only.
                     highlight_text = chunk.text[start:end]
 
             if highlight_start is None or highlight_end is None or highlight_text is None:
