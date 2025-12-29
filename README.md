@@ -166,6 +166,12 @@ Eval runners also respect:
    ```bash
    make eval-openai-smoke
    ```
+   Requires `AI_PROVIDER=openai`, `DEBUG=true`, and `OPENAI_API_KEY` (exported or set in `.env`).
+   Example:
+   ```bash
+   AI_PROVIDER=openai DEBUG=true OPENAI_API_KEY=... docker compose up --build -d
+   make eval-openai-smoke
+   ```
 
 Thresholds live in `scripts/eval/thresholds.json`. Override them explicitly:
 ```bash

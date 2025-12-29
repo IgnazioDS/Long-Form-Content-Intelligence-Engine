@@ -54,6 +54,33 @@ def get_env_int(name: str, default: int) -> int:
         return default
 
 
+def get_env_value(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is not None and value.strip():
+        return value
+    env_path = REPO_ROOT / ".env"
+    if not env_path.exists():
+        return None
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, raw_value = stripped.split("=", 1)
+        if key.strip() == name:
+            cleaned = raw_value.strip().strip("\"'")
+            return cleaned if cleaned else None
+    return None
+
+
+def require_openai_env() -> None:
+    provider = (get_env_value("AI_PROVIDER") or "").strip().lower() or "openai"
+    if provider != "openai":
+        raise RuntimeError("AI_PROVIDER must be set to openai for eval-openai-smoke")
+    api_key = get_env_value("OPENAI_API_KEY") or ""
+    if not api_key.strip():
+        raise RuntimeError("OPENAI_API_KEY is required for eval-openai-smoke")
+
+
 def load_dataset(path: Path) -> tuple[list[dict[str, Any]], str | None]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(payload, list):
@@ -417,6 +444,7 @@ def main() -> None:
     base_url = get_base_url(args.base_url)
     ready_timeout = get_env_int("EVAL_READY_TIMEOUT_SECONDS", DEFAULT_READY_TIMEOUT_SECONDS)
     http_timeout = get_env_int("EVAL_HTTP_TIMEOUT_SECONDS", DEFAULT_HTTP_TIMEOUT_SECONDS)
+    require_openai_env()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
