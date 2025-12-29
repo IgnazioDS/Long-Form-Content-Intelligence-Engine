@@ -82,10 +82,10 @@ def test_openai_highlight_uses_full_text(monkeypatch: MonkeyPatch) -> None:
 def test_openai_span_out_of_bounds_falls_back(monkeypatch: MonkeyPatch) -> None:
     chunk_id = uuid.UUID("00000000-0000-0000-0000-000000000003")
     token = "gamma"
-    chunk_text = f"alpha {token} delta"
+    chunk_text = f"alpha {token} delta " + ("x" * (highlights._CHUNK_TEXT_LIMIT + 50))
     chunk = _make_chunk(chunk_id, chunk_text)
-    token_start = chunk_text.index(token)
-    token_end = token_start + len(token)
+    too_late_start = highlights._CHUNK_TEXT_LIMIT + 10
+    too_late_end = too_late_start + 5
 
     def fake_chat(*args: object, **kwargs: object) -> str:
         payload = {
@@ -93,8 +93,8 @@ def test_openai_span_out_of_bounds_falls_back(monkeypatch: MonkeyPatch) -> None:
                 {
                     "chunk_id": str(chunk_id),
                     "relation": "SUPPORTS",
-                    "start": 999,
-                    "end": 1002,
+                    "start": too_late_start,
+                    "end": too_late_end,
                 }
             ]
         }
