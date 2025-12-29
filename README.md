@@ -215,4 +215,6 @@ Outputs are written to:
 - `/query/verified/highlights` adds evidence highlight spans (start/end offsets and highlight_text) per evidence item.
 - `/query/verified/grouped/highlights` combines highlights with grouped citations.
 - Verification runs deterministically when `AI_PROVIDER=fake`.
-- Highlight spans are best-effort and refer to indices in the full chunk text stored for the source; fields may be null if no span is found.
+- Highlight spans are best-effort and refer to indices in the full chunk text stored for the source.
+  When chunk char offsets are available, absolute_start/absolute_end provide offsets within the
+  original source text; fields may be null if no span is found.

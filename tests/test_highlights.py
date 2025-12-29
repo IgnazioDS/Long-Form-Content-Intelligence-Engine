@@ -11,13 +11,17 @@ from apps.api.app.services.retrieval import RetrievedChunk
 from packages.shared_db.settings import settings
 
 
-def _make_chunk(chunk_id: uuid.UUID, text: str) -> RetrievedChunk:
+def _make_chunk(
+    chunk_id: uuid.UUID, text: str, char_start: int | None = None, char_end: int | None = None
+) -> RetrievedChunk:
     return RetrievedChunk(
         chunk_id=chunk_id,
         source_id=uuid.uuid4(),
         source_title="Test",
         page_start=1,
         page_end=1,
+        char_start=char_start,
+        char_end=char_end,
         text=text,
         score=1.0,
     )
@@ -26,7 +30,8 @@ def _make_chunk(chunk_id: uuid.UUID, text: str) -> RetrievedChunk:
 def test_openai_highlight_uses_full_text(monkeypatch: MonkeyPatch) -> None:
     chunk_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
     chunk_text = "alpha beta gamma delta"
-    chunk = _make_chunk(chunk_id, chunk_text)
+    char_start = 250
+    chunk = _make_chunk(chunk_id, chunk_text, char_start=char_start)
     start = chunk_text.index("gamma")
     end = start + len("gamma")
 
@@ -77,6 +82,8 @@ def test_openai_highlight_uses_full_text(monkeypatch: MonkeyPatch) -> None:
     assert evidence.highlight_text == chunk_text[start:end]
     assert evidence.highlight_text != chunk_text[start:end].upper()
     assert len(evidence.highlight_text) == end - start
+    assert evidence.absolute_start == char_start + start
+    assert evidence.absolute_end == char_start + end
 
 
 def test_empty_provider_defaults_to_openai(monkeypatch: MonkeyPatch) -> None:
@@ -128,6 +135,8 @@ def test_empty_provider_defaults_to_openai(monkeypatch: MonkeyPatch) -> None:
     assert evidence.highlight_start == start
     assert evidence.highlight_end == end
     assert evidence.highlight_text == chunk_text[start:end]
+    assert evidence.absolute_start is None
+    assert evidence.absolute_end is None
 
 
 def test_openai_span_out_of_bounds_falls_back(monkeypatch: MonkeyPatch) -> None:
@@ -187,7 +196,8 @@ def test_openai_span_out_of_bounds_falls_back(monkeypatch: MonkeyPatch) -> None:
 def test_fake_highlight_indices_match_full_text() -> None:
     chunk_id = uuid.UUID("00000000-0000-0000-0000-000000000002")
     chunk_text = "The policy term is three years."
-    chunk = _make_chunk(chunk_id, chunk_text)
+    char_start = 1000
+    chunk = _make_chunk(chunk_id, chunk_text, char_start=char_start)
 
     claim = ClaimOut(
         claim_text="The policy term is three years.",
@@ -220,3 +230,5 @@ def test_fake_highlight_indices_match_full_text() -> None:
         == chunk_text[evidence.highlight_start : evidence.highlight_end]
     )
     assert len(evidence.highlight_text) == evidence.highlight_end - evidence.highlight_start
+    assert evidence.absolute_start == char_start + evidence.highlight_start
+    assert evidence.absolute_end == char_start + evidence.highlight_end

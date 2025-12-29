@@ -15,6 +15,8 @@ def test_generate_answer_returns_citations(monkeypatch: MonkeyPatch) -> None:
             source_title="Doc",
             page_start=1,
             page_end=2,
+            char_start=None,
+            char_end=None,
             text="Some text",
             score=1.0,
         )

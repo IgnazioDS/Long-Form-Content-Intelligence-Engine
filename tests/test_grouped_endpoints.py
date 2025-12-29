@@ -39,6 +39,8 @@ def _make_chunk(chunk_id: uuid.UUID, source_id: uuid.UUID, title: str) -> Retrie
         source_title=title,
         page_start=1,
         page_end=1,
+        char_start=None,
+        char_end=None,
         text="Chunk text",
         score=1.0,
     )

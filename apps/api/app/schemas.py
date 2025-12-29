@@ -87,6 +87,8 @@ class EvidenceHighlightOut(BaseModel):
     highlight_start: int | None
     highlight_end: int | None
     highlight_text: str | None
+    absolute_start: int | None
+    absolute_end: int | None
     model_config = ConfigDict(from_attributes=True)
 
 

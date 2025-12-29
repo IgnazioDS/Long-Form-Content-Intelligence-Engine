@@ -17,6 +17,8 @@ def _make_chunk(chunk_id: uuid.UUID, score: float, text: str) -> RetrievedChunk:
         source_title="Doc",
         page_start=1,
         page_end=2,
+        char_start=None,
+        char_end=None,
         text=text,
         score=score,
     )

@@ -20,6 +20,8 @@ class RetrievedChunk:
     source_title: str | None
     page_start: int | None
     page_end: int | None
+    char_start: int | None
+    char_end: int | None
     text: str
     score: float
 
@@ -50,6 +52,8 @@ def _upsert_candidate(
         source_title=row.title,
         page_start=row.page_start,
         page_end=row.page_end,
+        char_start=row.char_start,
+        char_end=row.char_end,
         text=row.text,
         score=score,
     )
@@ -145,6 +149,8 @@ def retrieve_candidates(
                     Source.title,
                     Chunk.page_start,
                     Chunk.page_end,
+                    Chunk.char_start,
+                    Chunk.char_end,
                     Chunk.text,
                     vector_distance.label("distance"),
                 )
@@ -160,6 +166,8 @@ def retrieve_candidates(
                     Source.title,
                     Chunk.page_start,
                     Chunk.page_end,
+                    Chunk.char_start,
+                    Chunk.char_end,
                     Chunk.text,
                     rank.label("rank"),
                 )
@@ -185,6 +193,8 @@ def retrieve_candidates(
                 Source.title,
                 Chunk.page_start,
                 Chunk.page_end,
+                Chunk.char_start,
+                Chunk.char_end,
                 Chunk.text,
                 vector_distance.label("distance"),
             )
@@ -200,6 +210,8 @@ def retrieve_candidates(
                 Source.title,
                 Chunk.page_start,
                 Chunk.page_end,
+                Chunk.char_start,
+                Chunk.char_end,
                 Chunk.text,
                 rank.label("rank"),
             )

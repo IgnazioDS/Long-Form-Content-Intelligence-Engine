@@ -184,10 +184,17 @@ def _apply_highlights_fake(
                         highlight_start=None,
                         highlight_end=None,
                         highlight_text=None,
+                        absolute_start=None,
+                        absolute_end=None,
                     )
                 )
                 continue
             start, end, text = _highlight_from_text(claim.claim_text, chunk.text)
+            absolute_start = None
+            absolute_end = None
+            if start is not None and end is not None and chunk.char_start is not None:
+                absolute_start = chunk.char_start + start
+                absolute_end = chunk.char_start + end
             evidence_items.append(
                 EvidenceHighlightOut(
                     chunk_id=evidence.chunk_id,
@@ -196,6 +203,8 @@ def _apply_highlights_fake(
                     highlight_start=start,
                     highlight_end=end,
                     highlight_text=text,
+                    absolute_start=absolute_start,
+                    absolute_end=absolute_end,
                 )
             )
         highlighted.append(
@@ -265,6 +274,8 @@ def add_highlights_to_claims(
                         highlight_start=None,
                         highlight_end=None,
                         highlight_text=None,
+                        absolute_start=None,
+                        absolute_end=None,
                     )
                 )
                 continue
@@ -293,6 +304,15 @@ def add_highlights_to_claims(
                 highlight_start = start
                 highlight_end = end
                 highlight_text = text
+            absolute_start = None
+            absolute_end = None
+            if (
+                highlight_start is not None
+                and highlight_end is not None
+                and chunk.char_start is not None
+            ):
+                absolute_start = chunk.char_start + highlight_start
+                absolute_end = chunk.char_start + highlight_end
 
             evidence_items.append(
                 EvidenceHighlightOut(
@@ -302,6 +322,8 @@ def add_highlights_to_claims(
                     highlight_start=highlight_start,
                     highlight_end=highlight_end,
                     highlight_text=highlight_text,
+                    absolute_start=absolute_start,
+                    absolute_end=absolute_end,
                 )
             )
 
