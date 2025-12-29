@@ -1,0 +1,25 @@
+{
+  "fixture": "sample.pdf",
+  "cases": [
+    {
+      "id": "openai-smoke-001",
+      "question": "What is the document titled?",
+      "expected_behavior": "ANSWERABLE"
+    },
+    {
+      "id": "openai-smoke-002",
+      "question": "What does it describe about retrieval?",
+      "expected_behavior": "ANSWERABLE"
+    },
+    {
+      "id": "openai-smoke-003",
+      "question": "Does it mention citations and retrieval?",
+      "expected_behavior": "ANSWERABLE"
+    },
+    {
+      "id": "openai-smoke-004",
+      "question": "Who is the author of the document?",
+      "expected_behavior": "INSUFFICIENT_EVIDENCE"
+    }
+  ]
+}

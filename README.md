@@ -162,6 +162,10 @@ Eval runners also respect:
    ```bash
    make eval-multisource
    ```
+6. Run the OpenAI highlights smoke harness:
+   ```bash
+   make eval-openai-smoke
+   ```
 
 Thresholds live in `scripts/eval/thresholds.json`. Override them explicitly:
 ```bash
@@ -183,6 +187,11 @@ The multisource dataset uses `scripts/eval/golden_multisource.json` with fixture
 `scripts/fixtures/sample.pdf` and `scripts/fixtures/second.pdf`. Its thresholds live
 under `eval_multisource` in `scripts/eval/thresholds.json`.
 
+The OpenAI highlights smoke dataset uses `tests/eval/golden_openai_smoke.json` and
+`scripts/fixtures/sample.pdf` to validate highlight span invariants against stored
+chunk text (OpenAI spans are validated against the truncated prefix but slices are
+checked against the full chunk text).
+
 Outputs are written to:
 - `scripts/eval/out/eval_results.json`
 - `scripts/eval/out/eval_report.md`
@@ -190,6 +199,8 @@ Outputs are written to:
 - `scripts/eval/out/eval_verified_report.md`
 - `scripts/eval/out/eval_multisource_results.json`
 - `scripts/eval/out/eval_multisource_report.md`
+- `tests/eval/out/eval_openai_smoke_results.json`
+- `tests/eval/out/eval_openai_smoke_report.md`
 
 ## Notes
 

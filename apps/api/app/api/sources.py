@@ -79,3 +79,15 @@ def debug_list_chunks(
         .all()
     )
     return {"source_id": str(source_id), "chunk_ids": [str(row.id) for row in rows]}
+
+
+@router.get("/debug/chunks/{chunk_id}")
+def debug_get_chunk(
+    chunk_id: UUID, session: Session = Depends(get_session)
+) -> dict[str, object]:
+    if not settings.debug:
+        raise HTTPException(status_code=404, detail="Not found")
+    chunk = session.get(Chunk, chunk_id)
+    if chunk is None:
+        raise HTTPException(status_code=404, detail="Chunk not found")
+    return {"chunk_id": str(chunk.id), "source_id": str(chunk.source_id), "text": chunk.text}
