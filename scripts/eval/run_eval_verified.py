@@ -323,6 +323,7 @@ def evaluate_case(
     payload = cast(dict[str, Any], response.json())
 
     answer = str(payload.get("answer", "")).strip()
+    answer_style = str(payload.get("answer_style", "")).strip().upper()
     citations = payload.get("citations", [])
     if not isinstance(citations, list):
         citations = []
@@ -372,6 +373,9 @@ def evaluate_case(
         present = [kw for kw in must_not_include if kw.lower() in answer_lower]
         if present:
             failures.append("forbidden_keywords(" + ", ".join(present) + ")")
+
+    if answer_style not in {"ORIGINAL", "CONFLICT_REWRITTEN", "INSUFFICIENT_EVIDENCE"}:
+        failures.append("invalid_answer_style")
 
     invalid_citations = 0
     if citations:
@@ -537,6 +541,8 @@ def evaluate_case(
         failures.append("expected_contradictions_missing")
     if require_conflict_prefix and not prefix_present:
         failures.append("missing_conflict_prefix")
+    if require_conflict_prefix and answer_style != "CONFLICT_REWRITTEN":
+        failures.append("conflict_rewrite_missing")
 
     if unknown_verdicts:
         verdict_counts["UNKNOWN"] = unknown_verdicts

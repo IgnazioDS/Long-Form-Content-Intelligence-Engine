@@ -10,7 +10,7 @@ from pytest import MonkeyPatch
 from apps.api.app.api import query_verified
 from apps.api.app.deps import get_session
 from apps.api.app.main import app
-from apps.api.app.schemas import ClaimOut, Verdict
+from apps.api.app.schemas import AnswerStyle, ClaimOut, Verdict
 from apps.api.app.services.retrieval import RetrievedChunk
 from apps.api.app.services.verify import CONTRADICTION_PREFIX
 
@@ -94,9 +94,16 @@ def test_query_verified_returns_claims(monkeypatch: MonkeyPatch) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert set(payload.keys()) == {"answer", "citations", "claims", "verification_summary"}
+    assert set(payload.keys()) == {
+        "answer",
+        "answer_style",
+        "citations",
+        "claims",
+        "verification_summary",
+    }
     assert isinstance(payload["claims"], list)
     assert isinstance(payload["verification_summary"], dict)
+    assert payload["answer_style"] == AnswerStyle.ORIGINAL.value
 
     allowed_ids = {str(chunk.chunk_id) for chunk in chunks}
     for citation in payload["citations"]:
@@ -163,6 +170,7 @@ def test_query_verified_contradiction_prefix(monkeypatch: MonkeyPatch) -> None:
     assert summary["overall_verdict"] == "HAS_CONTRADICTIONS"
     assert payload["answer"].startswith(CONTRADICTION_PREFIX)
     assert "The system uses port 8000." in payload["answer"]
+    assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value
 
 
 def test_query_verified_grouped_contradiction_prefix(monkeypatch: MonkeyPatch) -> None:
@@ -223,3 +231,50 @@ def test_query_verified_grouped_contradiction_prefix(monkeypatch: MonkeyPatch) -
     assert summary["overall_verdict"] == "HAS_CONTRADICTIONS"
     assert payload["answer"].startswith(CONTRADICTION_PREFIX)
     assert isinstance(payload.get("citation_groups"), list)
+    assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value
+
+
+def test_query_verified_insufficient_evidence_answer_style(monkeypatch: MonkeyPatch) -> None:
+    chunk_id = uuid.UUID("00000000-0000-0000-0000-000000000012")
+    chunk = _make_chunk(chunk_id, "No relevant information.")
+
+    def fake_retrieve_candidates(
+        *,
+        session: FakeSession,
+        question: str,
+        query_embedding: list[float],
+        source_ids: list[uuid.UUID] | None,
+        rerank: bool | None = None,
+    ) -> list[RetrievedChunk]:
+        return [chunk]
+
+    def fake_generate_answer(
+        question: str, chunks: list[RetrievedChunk]
+    ) -> tuple[str, list[uuid.UUID]]:
+        return "insufficient evidence.", []
+
+    def fake_verify_answer(
+        question: str,
+        answer: str,
+        chunks: list[RetrievedChunk],
+        cited_ids: list[uuid.UUID],
+    ) -> list[ClaimOut]:
+        return []
+
+    monkeypatch.setattr(query_verified, "retrieve_candidates", fake_retrieve_candidates)
+    monkeypatch.setattr(query_verified, "generate_answer", fake_generate_answer)
+    monkeypatch.setattr(query_verified, "verify_answer", fake_verify_answer)
+    app.dependency_overrides[get_session] = _get_test_session
+
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/query/verified",
+            json={"question": "Who authored this?", "source_ids": []},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["answer_style"] == AnswerStyle.INSUFFICIENT_EVIDENCE.value

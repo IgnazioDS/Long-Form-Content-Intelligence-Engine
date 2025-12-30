@@ -10,7 +10,7 @@ from pytest import MonkeyPatch
 from apps.api.app.api import query_verified_highlights
 from apps.api.app.deps import get_session
 from apps.api.app.main import app
-from apps.api.app.schemas import ClaimOut, EvidenceOut, EvidenceRelation, Verdict
+from apps.api.app.schemas import AnswerStyle, ClaimOut, EvidenceOut, EvidenceRelation, Verdict
 from apps.api.app.services.highlights import add_highlights_to_claims
 from apps.api.app.services.rag import build_snippet
 from apps.api.app.services.retrieval import RetrievedChunk
@@ -160,7 +160,13 @@ def test_query_verified_highlights_response_shape(monkeypatch: MonkeyPatch) -> N
 
     assert response.status_code == 200
     payload = response.json()
-    assert set(payload.keys()) == {"answer", "citations", "claims", "verification_summary"}
+    assert set(payload.keys()) == {
+        "answer",
+        "answer_style",
+        "citations",
+        "claims",
+        "verification_summary",
+    }
     citation = payload["citations"][0]
     assert citation["snippet_start"] == snippet.snippet_start
     assert citation["snippet_end"] == snippet.snippet_end
@@ -179,6 +185,7 @@ def test_query_verified_highlights_response_shape(monkeypatch: MonkeyPatch) -> N
     summary = payload["verification_summary"]
     assert summary["has_contradictions"] is False
     assert not payload["answer"].startswith(CONTRADICTION_PREFIX)
+    assert payload["answer_style"] == AnswerStyle.ORIGINAL.value
 
 
 def test_query_verified_grouped_highlights_contradiction_prefix(
@@ -243,3 +250,4 @@ def test_query_verified_grouped_highlights_contradiction_prefix(
     assert summary["overall_verdict"] == "HAS_CONTRADICTIONS"
     assert payload["answer"].startswith(CONTRADICTION_PREFIX)
     assert isinstance(payload.get("citation_groups"), list)
+    assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value

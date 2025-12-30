@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from apps.api.app.schemas import (
+    AnswerStyle,
     ClaimOut,
     EvidenceOut,
     EvidenceRelation,
@@ -124,18 +125,17 @@ def rewrite_verified_answer(
     answer: str,
     claims: list[ClaimOut],
     verification_summary: VerificationSummaryOut,
-) -> str:
+) -> tuple[str, AnswerStyle]:
+    clean_answer = answer
+    if clean_answer.startswith(CONTRADICTION_PREFIX):
+        clean_answer = clean_answer[len(CONTRADICTION_PREFIX) :].lstrip()
     if (
         verification_summary.overall_verdict
         == VerificationOverallVerdict.INSUFFICIENT_EVIDENCE
     ):
-        return answer
+        return clean_answer, AnswerStyle.INSUFFICIENT_EVIDENCE
     if not verification_summary.has_contradictions:
-        return answer
-
-    clean_answer = answer
-    if clean_answer.startswith(CONTRADICTION_PREFIX):
-        clean_answer = clean_answer[len(CONTRADICTION_PREFIX) :].lstrip()
+        return clean_answer, AnswerStyle.ORIGINAL
 
     supported = [
         claim.claim_text
@@ -167,10 +167,10 @@ def rewrite_verified_answer(
         sections.append(format_section("What's not supported", unsupported))
 
     if not supported and not conflicted and not unsupported:
-        return answer
+        return clean_answer, AnswerStyle.ORIGINAL
 
     body = "\n\n".join(sections)
-    return f"{CONTRADICTION_PREFIX}{body}"
+    return f"{CONTRADICTION_PREFIX}{body}", AnswerStyle.CONFLICT_REWRITTEN
 
 
 def _extract_claims(question: str, answer: str) -> list[str]:

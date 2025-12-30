@@ -86,10 +86,12 @@ def query_verified(
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text = rewrite_verified_answer(
+    answer_text, answer_style = rewrite_verified_answer(
         payload.question, answer_text, claims, verification_summary
     )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
+    summary_payload = verification_summary.model_dump(mode="json")
+    summary_payload["answer_style"] = answer_style.value
 
     answer_row = Answer(
         query_id=query_row.id,
@@ -97,7 +99,7 @@ def query_verified(
         raw_citations={
             "ids": [str(cid) for cid in cited_ids],
             "claims": raw_claims,
-            "verification_summary": verification_summary.model_dump(mode="json"),
+            "verification_summary": summary_payload,
         },
     )
     session.add(answer_row)
@@ -115,6 +117,7 @@ def query_verified(
 
     return QueryVerifiedResponse(
         answer=answer_text,
+        answer_style=answer_style,
         citations=citations,
         claims=claims,
         verification_summary=verification_summary,
@@ -183,10 +186,12 @@ def query_verified_grouped(
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text = rewrite_verified_answer(
+    answer_text, answer_style = rewrite_verified_answer(
         payload.question, answer_text, claims, verification_summary
     )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
+    summary_payload = verification_summary.model_dump(mode="json")
+    summary_payload["answer_style"] = answer_style.value
 
     answer_row = Answer(
         query_id=query_row.id,
@@ -194,7 +199,7 @@ def query_verified_grouped(
         raw_citations={
             "ids": [str(cid) for cid in cited_ids],
             "claims": raw_claims,
-            "verification_summary": verification_summary.model_dump(mode="json"),
+            "verification_summary": summary_payload,
         },
     )
     session.add(answer_row)
@@ -213,6 +218,7 @@ def query_verified_grouped(
     citation_groups = build_citation_groups(citations)
     return QueryVerifiedGroupedResponse(
         answer=answer_text,
+        answer_style=answer_style,
         citations=citations,
         claims=claims,
         citation_groups=citation_groups,

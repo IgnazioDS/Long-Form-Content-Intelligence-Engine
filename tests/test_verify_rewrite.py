@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from apps.api.app.schemas import ClaimOut, Verdict
+from apps.api.app.schemas import AnswerStyle, ClaimOut, Verdict
 from apps.api.app.services.verify import (
     CONTRADICTION_PREFIX,
     rewrite_verified_answer,
@@ -62,8 +62,11 @@ def test_rewrite_verified_answer_with_contradictions() -> None:
     ]
     summary = summarize_claims(claims, "Original answer.", citations_count=2)
 
-    rewritten = rewrite_verified_answer("Question", "Original answer.", claims, summary)
+    rewritten, style = rewrite_verified_answer(
+        "Question", "Original answer.", claims, summary
+    )
     assert rewritten.startswith(CONTRADICTION_PREFIX)
+    assert style == AnswerStyle.CONFLICT_REWRITTEN
 
     headings = [
         "What the sources support",
@@ -99,8 +102,9 @@ def test_rewrite_verified_answer_without_contradictions() -> None:
     original = "Alpha is enabled."
     summary = summarize_claims(claims, original, citations_count=1)
 
-    rewritten = rewrite_verified_answer("Question", original, claims, summary)
+    rewritten, style = rewrite_verified_answer("Question", original, claims, summary)
     assert rewritten == original
+    assert style == AnswerStyle.ORIGINAL
 
 
 def test_rewrite_verified_answer_insufficient_evidence() -> None:
@@ -108,8 +112,9 @@ def test_rewrite_verified_answer_insufficient_evidence() -> None:
     original = "insufficient evidence. Suggested follow-ups: clarify the question."
     summary = summarize_claims(claims, original, citations_count=0)
 
-    rewritten = rewrite_verified_answer("Question", original, claims, summary)
+    rewritten, style = rewrite_verified_answer("Question", original, claims, summary)
     assert rewritten == original
+    assert style == AnswerStyle.INSUFFICIENT_EVIDENCE
 
 
 def test_rewrite_verified_answer_no_double_prefix() -> None:
@@ -131,6 +136,7 @@ def test_rewrite_verified_answer_no_double_prefix() -> None:
     ]
     summary = summarize_claims(claims, "Original answer.", citations_count=1)
     prefixed = f"{CONTRADICTION_PREFIX}Original answer."
-    rewritten = rewrite_verified_answer("Question", prefixed, claims, summary)
+    rewritten, style = rewrite_verified_answer("Question", prefixed, claims, summary)
     assert rewritten.startswith(CONTRADICTION_PREFIX)
     assert rewritten.count(CONTRADICTION_PREFIX) == 1
+    assert style == AnswerStyle.CONFLICT_REWRITTEN
