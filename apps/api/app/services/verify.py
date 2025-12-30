@@ -249,6 +249,77 @@ def build_verified_response(
     return rewritten_answer, answer_style, verification_summary
 
 
+def assert_verification_consistency(
+    answer: str,
+    claims: list[ClaimOut],
+    summary: VerificationSummaryOut,
+    citations_count: int,
+) -> None:
+    errors: list[str] = []
+    verdict_counts = {
+        Verdict.SUPPORTED: 0,
+        Verdict.WEAK_SUPPORT: 0,
+        Verdict.UNSUPPORTED: 0,
+        Verdict.CONTRADICTED: 0,
+        Verdict.CONFLICTING: 0,
+    }
+    for claim in claims:
+        if claim.verdict in verdict_counts:
+            verdict_counts[claim.verdict] += 1
+
+    summary_counts = {
+        Verdict.SUPPORTED: summary.supported_count,
+        Verdict.WEAK_SUPPORT: summary.weak_support_count,
+        Verdict.UNSUPPORTED: summary.unsupported_count,
+        Verdict.CONTRADICTED: summary.contradicted_count,
+        Verdict.CONFLICTING: summary.conflicting_count,
+    }
+    for verdict, expected_count in verdict_counts.items():
+        actual_count = summary_counts[verdict]
+        if actual_count != expected_count:
+            errors.append(
+                "summary_count_mismatch("
+                f"verdict={verdict.value}, expected={expected_count}, got={actual_count})"
+            )
+
+    expected_has_contradictions = (
+        verdict_counts[Verdict.CONTRADICTED] + verdict_counts[Verdict.CONFLICTING]
+    ) > 0
+    if summary.has_contradictions != expected_has_contradictions:
+        errors.append("summary_has_contradictions_mismatch")
+
+    all_unsupported = bool(claims) and verdict_counts[Verdict.UNSUPPORTED] == len(claims)
+    insufficient_evidence = _is_insufficient_evidence_answer(answer) or (
+        citations_count == 0 and all_unsupported
+    )
+    if insufficient_evidence:
+        expected_overall = VerificationOverallVerdict.INSUFFICIENT_EVIDENCE
+    elif expected_has_contradictions:
+        expected_overall = VerificationOverallVerdict.HAS_CONTRADICTIONS
+    else:
+        expected_overall = VerificationOverallVerdict.OK
+    if summary.overall_verdict != expected_overall:
+        errors.append(
+            "summary_overall_verdict_mismatch("
+            f"expected={expected_overall.value}, got={summary.overall_verdict.value})"
+        )
+
+    if answer.strip().startswith(CONTRADICTION_PREFIX):
+        expected_style = AnswerStyle.CONFLICT_REWRITTEN
+    elif expected_overall == VerificationOverallVerdict.INSUFFICIENT_EVIDENCE:
+        expected_style = AnswerStyle.INSUFFICIENT_EVIDENCE
+    else:
+        expected_style = AnswerStyle.ORIGINAL
+    if summary.answer_style != expected_style:
+        errors.append(
+            "summary_answer_style_mismatch("
+            f"expected={expected_style.value}, got={summary.answer_style.value})"
+        )
+
+    if errors:
+        raise ValueError("verification_summary_inconsistent: " + "; ".join(errors))
+
+
 def _extract_claims(question: str, answer: str) -> list[str]:
     cleaned_answer = answer.strip()
     if not cleaned_answer:

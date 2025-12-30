@@ -17,6 +17,7 @@ from apps.api.app.security import require_api_key
 from apps.api.app.services.rag import build_snippet, compute_absolute_offsets, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
 from apps.api.app.services.verify import (
+    assert_verification_consistency,
     build_verified_response,
     summarize_claims,
     verify_answer,
@@ -92,6 +93,9 @@ def query_verified(
         claims=claims,
         citations=citations,
         verification_summary=verification_summary,
+    )
+    assert_verification_consistency(
+        answer_text, claims, verification_summary, citations_count=len(citations)
     )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     summary_payload = verification_summary.model_dump(mode="json")
@@ -197,6 +201,9 @@ def query_verified_grouped(
         citations=citations,
         verification_summary=verification_summary,
         citation_groups=citation_groups,
+    )
+    assert_verification_consistency(
+        answer_text, claims, verification_summary, citations_count=len(citations)
     )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     summary_payload = verification_summary.model_dump(mode="json")

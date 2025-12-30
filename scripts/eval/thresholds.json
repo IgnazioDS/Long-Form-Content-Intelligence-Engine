@@ -10,12 +10,14 @@
     "invalid_evidence_id_count_max": 0,
     "answerable_pass_rate_min": 0.95,
     "avg_claims_per_answerable_min": 2.0,
-    "unsupported_rate_max": 0.75
+    "unsupported_rate_max": 0.75,
+    "summary_consistency_rate_min": 1.0
   },
   "eval_verified_conflicts": {
     "invalid_evidence_id_count_max": 0,
     "contradicted_or_conflicting_rate_min": 0.0,
-    "contradiction_detection_rate_min": 1.0
+    "contradiction_detection_rate_min": 1.0,
+    "summary_consistency_rate_min": 1.0
   },
   "eval_multisource": {
     "invalid_citation_count_max": 0,

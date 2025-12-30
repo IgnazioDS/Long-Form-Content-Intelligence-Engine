@@ -66,6 +66,7 @@ EVAL_VERIFIED_GATE_DEFINITIONS = (
     ("answerable_pass_rate_min", "answerable_pass_rate", ">="),
     ("avg_claims_per_answerable_min", "avg_claims_per_answerable", ">="),
     ("unsupported_rate_max", "unsupported_rate", "<="),
+    ("summary_consistency_rate_min", "summary_consistency_rate", ">="),
 )
 
 EVAL_VERIFIED_CONFLICTS_GATE_DEFINITIONS = (
@@ -80,6 +81,7 @@ EVAL_VERIFIED_CONFLICTS_GATE_DEFINITIONS = (
         "contradiction_detection_rate",
         ">=",
     ),
+    ("summary_consistency_rate_min", "summary_consistency_rate", ">="),
 )
 
 
@@ -340,11 +342,14 @@ def evaluate_case(
         failures.append("claims_not_list")
 
     summary_payload = payload.get("verification_summary")
+    summary_failures: list[str] = []
     if summary_payload is not None and not isinstance(summary_payload, dict):
         failures.append("invalid_verification_summary_shape")
+        summary_failures.append("invalid_verification_summary_shape")
         summary_payload = None
     if summary_payload is None:
         failures.append("missing_verification_summary")
+        summary_failures.append("missing_verification_summary")
     summary_answer_style = None
     if summary_payload:
         raw_style = summary_payload.get("answer_style")
@@ -352,8 +357,10 @@ def evaluate_case(
             summary_answer_style = raw_style.strip().upper()
         else:
             failures.append("missing_summary_answer_style")
+            summary_failures.append("missing_summary_answer_style")
     if summary_answer_style and summary_answer_style != answer_style:
         failures.append("answer_style_mismatch")
+        summary_failures.append("answer_style_mismatch")
 
     if expected == "ANSWERABLE":
         if not answer:
@@ -514,17 +521,20 @@ def evaluate_case(
         for verdict_key, value in summary_counts_raw.items():
             if not isinstance(value, int):
                 failures.append(f"invalid_summary_count(verdict={verdict_key})")
+                summary_failures.append("invalid_summary_count")
             else:
                 summary_counts[verdict_key] = value
 
         summary_has_contradictions = summary_payload.get("has_contradictions")
         if not isinstance(summary_has_contradictions, bool):
             failures.append("invalid_summary_has_contradictions")
+            summary_failures.append("invalid_summary_has_contradictions")
             summary_has_contradictions = None
 
         summary_overall = str(summary_payload.get("overall_verdict", "")).strip().upper()
         if summary_overall not in {"OK", "HAS_CONTRADICTIONS", "INSUFFICIENT_EVIDENCE"}:
             failures.append("invalid_summary_overall_verdict")
+            summary_failures.append("invalid_summary_overall_verdict")
 
         if len(summary_counts) == len(summary_counts_raw):
             for verdict_key, count in summary_counts.items():
@@ -534,6 +544,7 @@ def evaluate_case(
                         "summary_count_mismatch("
                         f"verdict={verdict_key}, expected={expected_count}, got={count})"
                     )
+                    summary_failures.append("summary_count_mismatch")
 
         expected_has_contradictions = (
             verdict_counts.get("CONTRADICTED", 0)
@@ -542,6 +553,40 @@ def evaluate_case(
         if summary_has_contradictions is not None:
             if summary_has_contradictions != expected_has_contradictions:
                 failures.append("summary_has_contradictions_mismatch")
+                summary_failures.append("summary_has_contradictions_mismatch")
+
+        all_unsupported = claims_count > 0 and unsupported_claims == claims_count
+        insufficient_expected = contains_insufficient_evidence(answer) or (
+            citations_count == 0 and all_unsupported
+        )
+        if insufficient_expected:
+            expected_overall = "INSUFFICIENT_EVIDENCE"
+        elif expected_has_contradictions:
+            expected_overall = "HAS_CONTRADICTIONS"
+        else:
+            expected_overall = "OK"
+        if summary_overall in {"OK", "HAS_CONTRADICTIONS", "INSUFFICIENT_EVIDENCE"}:
+            if summary_overall != expected_overall:
+                failures.append(
+                    "summary_overall_verdict_mismatch("
+                    f"expected={expected_overall}, got={summary_overall})"
+                )
+                summary_failures.append("summary_overall_verdict_mismatch")
+
+        if answer.lower().startswith(CONTRADICTION_PREFIX_MARKER):
+            expected_style = "CONFLICT_REWRITTEN"
+        elif expected_overall == "INSUFFICIENT_EVIDENCE":
+            expected_style = "INSUFFICIENT_EVIDENCE"
+        else:
+            expected_style = "ORIGINAL"
+        if summary_answer_style and summary_answer_style != expected_style:
+            failures.append(
+                "summary_answer_style_mismatch("
+                f"expected={expected_style}, got={summary_answer_style})"
+            )
+            summary_failures.append("summary_answer_style_mismatch")
+
+    summary_consistent = not summary_failures
 
     expect_contradictions = parse_bool(case.get("expect_contradictions"))
     require_conflict_prefix = parse_bool(case.get("require_conflict_prefix"))
@@ -570,6 +615,7 @@ def evaluate_case(
         "has_contradictions": summary_has_contradictions,
         "expect_contradictions": expect_contradictions,
         "conflict_prefix_present": prefix_present,
+        "summary_consistent": summary_consistent,
         "passed": not failures,
         "failures": failures,
     }
@@ -650,6 +696,7 @@ def write_report(
         "conflicting_rate",
         "contradicted_or_conflicting_rate",
         "contradiction_detection_rate",
+        "summary_consistency_rate",
     ):
         lines.append(f"| {key} | {metrics[key]} |")
     lines.append("")
@@ -757,6 +804,7 @@ def main() -> None:
         verdict_totals: dict[str, int] = {key: 0 for key in VERDICT_KEYS}
         expected_contradiction_cases = 0
         detected_contradiction_cases = 0
+        summary_consistency_passed = 0
 
         for case in cases:
             result, invalid_citations, invalid_evidence_ids, evidence_count = evaluate_case(
@@ -777,6 +825,8 @@ def main() -> None:
                 expected_contradiction_cases += 1
                 if result.get("has_contradictions"):
                     detected_contradiction_cases += 1
+            if result.get("summary_consistent"):
+                summary_consistency_passed += 1
 
             expected = result.get("expected_behavior")
             if expected == "ANSWERABLE":
@@ -838,6 +888,9 @@ def main() -> None:
         if expected_contradiction_cases
         else 1.0
     )
+    summary_consistency_rate = (
+        round(summary_consistency_passed / total_cases, 4) if total_cases else 1.0
+    )
 
     timestamp = datetime.now(UTC).isoformat()
     git_commit = get_git_commit()
@@ -860,6 +913,7 @@ def main() -> None:
         "conflicting_rate": conflicting_rate,
         "contradicted_or_conflicting_rate": contradicted_or_conflicting_rate,
         "contradiction_detection_rate": contradiction_detection_rate,
+        "summary_consistency_rate": summary_consistency_rate,
     }
 
     quality_gates = evaluate_quality_gates(metrics, thresholds, gate_definitions)
