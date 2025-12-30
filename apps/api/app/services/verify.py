@@ -157,6 +157,10 @@ def normalize_verification_summary_payload(raw: dict[str, Any]) -> dict[str, Any
     return normalized
 
 
+def coerce_claims_payload(raw_claims: list[dict[str, Any]] | None) -> list[ClaimOut]:
+    return _coerce_raw_claims(raw_claims)
+
+
 def normalize_verification_summary(
     answer_text: str,
     raw_claims: list[dict[str, Any]] | None,
