@@ -38,9 +38,11 @@ def get_answer_highlights(
     raw_highlights = raw_citations.get("claims_highlights")
     raw_claims = raw_citations.get("claims")
     raw_summary = raw_citations.get("verification_summary")
-    raw_ids = raw_citations.get("ids", [])
-    citations_count = len(raw_ids) if isinstance(raw_ids, list) else 0
     citations = coerce_citations_payload(raw_citations.get("citations"))
+    raw_ids = raw_citations.get("ids", [])
+    citations_count = (
+        len(raw_ids) if isinstance(raw_ids, list) else len(citations)
+    )
 
     base_claims = coerce_claims_payload(raw_claims)
     highlight_claims = coerce_highlight_claims_payload(raw_highlights)

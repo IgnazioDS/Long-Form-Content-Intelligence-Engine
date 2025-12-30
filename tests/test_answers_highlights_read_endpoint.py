@@ -243,3 +243,34 @@ def test_get_answer_highlights_only_highlights_derives_summary() -> None:
     payload = response.json()
     assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value
     assert payload["verification_summary"]["has_contradictions"] is True
+
+
+def test_get_answer_highlights_hydrates_citations() -> None:
+    chunk_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    answer_row = _make_answer(
+        "Ok.",
+        raw_citations={
+            "citations": [
+                {
+                    "chunk_id": str(chunk_id),
+                    "source_id": str(source_id),
+                    "snippet": "Snippet text.",
+                }
+            ],
+            "claims": [_raw_claim(Verdict.SUPPORTED)],
+        },
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}/highlights")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["citations"]) == 1

@@ -235,3 +235,36 @@ def test_get_answer_filters_invalid_citations() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["citations"]) == 1
+
+
+def test_get_answer_citations_count_falls_back_to_citations() -> None:
+    chunk_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    answer_row = _make_answer(
+        "Ok.",
+        raw_citations={
+            "citations": [
+                {
+                    "chunk_id": str(chunk_id),
+                    "source_id": str(source_id),
+                    "snippet": "Snippet text.",
+                }
+            ],
+            "claims": [_raw_claim(Verdict.SUPPORTED)],
+        },
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["verification_summary"]["overall_verdict"] == (
+        VerificationOverallVerdict.OK.value
+    )
