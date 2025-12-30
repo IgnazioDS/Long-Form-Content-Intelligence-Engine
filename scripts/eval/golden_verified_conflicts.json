@@ -6,7 +6,9 @@
       "id": "conflicts-001",
       "question": "Which port does the system use for the API?",
       "expected_behavior": "ANSWERABLE",
-      "require_verdicts": ["UNSUPPORTED", "CONTRADICTED", "CONFLICTING"]
+      "require_verdicts": ["UNSUPPORTED", "CONTRADICTED", "CONFLICTING"],
+      "expect_contradictions": true,
+      "require_conflict_prefix": true
     },
     {
       "id": "conflicts-002",

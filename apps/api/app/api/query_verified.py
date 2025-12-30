@@ -16,7 +16,11 @@ from apps.api.app.schemas import (
 from apps.api.app.security import require_api_key
 from apps.api.app.services.rag import build_snippet, compute_absolute_offsets, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
-from apps.api.app.services.verify import verify_answer
+from apps.api.app.services.verify import (
+    apply_contradiction_prefix,
+    summarize_claims,
+    verify_answer,
+)
 from packages.shared_db.models import Answer, Query
 from packages.shared_db.openai_client import embed_texts
 
@@ -81,12 +85,18 @@ def query_verified(
         )
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
+    verification_summary = summarize_claims(claims, answer_text, len(citations))
+    answer_text = apply_contradiction_prefix(answer_text, verification_summary)
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
 
     answer_row = Answer(
         query_id=query_row.id,
         answer=answer_text,
-        raw_citations={"ids": [str(cid) for cid in cited_ids], "claims": raw_claims},
+        raw_citations={
+            "ids": [str(cid) for cid in cited_ids],
+            "claims": raw_claims,
+            "verification_summary": verification_summary.model_dump(mode="json"),
+        },
     )
     session.add(answer_row)
     session.commit()
@@ -101,7 +111,12 @@ def query_verified(
         },
     )
 
-    return QueryVerifiedResponse(answer=answer_text, citations=citations, claims=claims)
+    return QueryVerifiedResponse(
+        answer=answer_text,
+        citations=citations,
+        claims=claims,
+        verification_summary=verification_summary,
+    )
 
 
 @router.post("/query/verified/grouped", response_model=QueryVerifiedGroupedResponse)
@@ -165,12 +180,18 @@ def query_verified_grouped(
         )
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
+    verification_summary = summarize_claims(claims, answer_text, len(citations))
+    answer_text = apply_contradiction_prefix(answer_text, verification_summary)
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
 
     answer_row = Answer(
         query_id=query_row.id,
         answer=answer_text,
-        raw_citations={"ids": [str(cid) for cid in cited_ids], "claims": raw_claims},
+        raw_citations={
+            "ids": [str(cid) for cid in cited_ids],
+            "claims": raw_claims,
+            "verification_summary": verification_summary.model_dump(mode="json"),
+        },
     )
     session.add(answer_row)
     session.commit()
@@ -191,4 +212,5 @@ def query_verified_grouped(
         citations=citations,
         claims=claims,
         citation_groups=citation_groups,
+        verification_summary=verification_summary,
     )

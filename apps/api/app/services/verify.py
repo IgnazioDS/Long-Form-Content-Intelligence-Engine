@@ -5,7 +5,14 @@ import re
 from typing import Any
 from uuid import UUID
 
-from apps.api.app.schemas import ClaimOut, EvidenceOut, EvidenceRelation, Verdict
+from apps.api.app.schemas import (
+    ClaimOut,
+    EvidenceOut,
+    EvidenceRelation,
+    VerificationOverallVerdict,
+    VerificationSummaryOut,
+    Verdict,
+)
 from apps.api.app.services.rag import build_snippet, compute_absolute_offsets
 from apps.api.app.services.retrieval import RetrievedChunk
 from packages.shared_db.openai_client import chat
@@ -18,6 +25,10 @@ _MAX_SUPPORT_EVIDENCE = 2
 _MAX_CONTRADICT_EVIDENCE = 1
 _CHUNK_TEXT_LIMIT = 900
 _FAKE_SUPPORT_THRESHOLD = 0.4
+CONTRADICTION_PREFIX = (
+    "Contradictions detected in the source material. "
+    "See claims below for details.\n\n"
+)
 
 
 def verify_answer(
@@ -34,6 +45,57 @@ def verify_answer(
     if settings.ai_provider.strip().lower() == "fake":
         return _align_claims_fake(claim_texts, chunks, preferred_ids)
     return _align_claims_openai(question, claim_texts, chunks, preferred_ids)
+
+
+def summarize_claims(
+    claims: list[ClaimOut], answer: str, citations_count: int
+) -> VerificationSummaryOut:
+    supported_count = 0
+    weak_support_count = 0
+    unsupported_count = 0
+    contradicted_count = 0
+    conflicting_count = 0
+
+    for claim in claims:
+        if claim.verdict == Verdict.SUPPORTED:
+            supported_count += 1
+        elif claim.verdict == Verdict.WEAK_SUPPORT:
+            weak_support_count += 1
+        elif claim.verdict == Verdict.UNSUPPORTED:
+            unsupported_count += 1
+        elif claim.verdict == Verdict.CONTRADICTED:
+            contradicted_count += 1
+        elif claim.verdict == Verdict.CONFLICTING:
+            conflicting_count += 1
+
+    has_contradictions = (contradicted_count + conflicting_count) > 0
+    all_unsupported = bool(claims) and unsupported_count == len(claims)
+    insufficient_evidence = _is_insufficient_evidence_answer(answer) or (
+        citations_count == 0 and all_unsupported
+    )
+
+    if insufficient_evidence:
+        overall_verdict = VerificationOverallVerdict.INSUFFICIENT_EVIDENCE
+    elif has_contradictions:
+        overall_verdict = VerificationOverallVerdict.HAS_CONTRADICTIONS
+    else:
+        overall_verdict = VerificationOverallVerdict.OK
+
+    return VerificationSummaryOut(
+        supported_count=supported_count,
+        weak_support_count=weak_support_count,
+        unsupported_count=unsupported_count,
+        contradicted_count=contradicted_count,
+        conflicting_count=conflicting_count,
+        has_contradictions=has_contradictions,
+        overall_verdict=overall_verdict,
+    )
+
+
+def apply_contradiction_prefix(answer: str, summary: VerificationSummaryOut) -> str:
+    if summary.has_contradictions and not answer.startswith(CONTRADICTION_PREFIX):
+        return f"{CONTRADICTION_PREFIX}{answer}"
+    return answer
 
 
 def _extract_claims(question: str, answer: str) -> list[str]:
@@ -77,6 +139,11 @@ def _extract_claims(question: str, answer: str) -> list[str]:
             if text:
                 extracted_claims.append(text)
     return extracted_claims
+
+
+def _is_insufficient_evidence_answer(answer: str) -> bool:
+    cleaned = answer.strip().lower()
+    return cleaned.startswith("insufficient evidence")
 
 
 def _align_claims_openai(

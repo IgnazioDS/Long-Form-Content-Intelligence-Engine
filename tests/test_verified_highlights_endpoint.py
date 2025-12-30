@@ -14,6 +14,7 @@ from apps.api.app.schemas import ClaimOut, EvidenceOut, EvidenceRelation, Verdic
 from apps.api.app.services.highlights import add_highlights_to_claims
 from apps.api.app.services.rag import build_snippet
 from apps.api.app.services.retrieval import RetrievedChunk
+from apps.api.app.services.verify import CONTRADICTION_PREFIX
 
 
 class FakeSession:
@@ -159,7 +160,7 @@ def test_query_verified_highlights_response_shape(monkeypatch: MonkeyPatch) -> N
 
     assert response.status_code == 200
     payload = response.json()
-    assert set(payload.keys()) == {"answer", "citations", "claims"}
+    assert set(payload.keys()) == {"answer", "citations", "claims", "verification_summary"}
     citation = payload["citations"][0]
     assert citation["snippet_start"] == snippet.snippet_start
     assert citation["snippet_end"] == snippet.snippet_end
@@ -175,3 +176,70 @@ def test_query_verified_highlights_response_shape(monkeypatch: MonkeyPatch) -> N
     assert evidence["snippet_end"] == snippet.snippet_end
     assert evidence["absolute_start"] == chunk.char_start + snippet.snippet_start
     assert evidence["absolute_end"] == chunk.char_start + snippet.snippet_end
+    summary = payload["verification_summary"]
+    assert summary["has_contradictions"] is False
+    assert not payload["answer"].startswith(CONTRADICTION_PREFIX)
+
+
+def test_query_verified_grouped_highlights_contradiction_prefix(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    chunk_id = uuid.UUID("00000000-0000-0000-0000-000000000010")
+    chunk = _make_chunk(chunk_id, "The system uses port 8000.")
+
+    def fake_retrieve_candidates(
+        *,
+        session: FakeSession,
+        question: str,
+        query_embedding: list[float],
+        source_ids: list[uuid.UUID] | None,
+        rerank: bool | None = None,
+        per_source_limit: int | None = None,
+    ) -> list[RetrievedChunk]:
+        return [chunk]
+
+    def fake_generate_answer(
+        question: str, chunks: list[RetrievedChunk]
+    ) -> tuple[str, list[uuid.UUID]]:
+        return "The system uses port 8000.", [chunk_id]
+
+    def fake_verify_answer(
+        question: str,
+        answer: str,
+        chunks: list[RetrievedChunk],
+        cited_ids: list[uuid.UUID],
+    ) -> list[ClaimOut]:
+        return [
+            ClaimOut(
+                claim_text="The system uses port 8000.",
+                verdict=Verdict.CONTRADICTED,
+                support_score=0.0,
+                contradiction_score=0.9,
+                evidence=[],
+            )
+        ]
+
+    monkeypatch.setattr(
+        query_verified_highlights, "retrieve_candidates", fake_retrieve_candidates
+    )
+    monkeypatch.setattr(query_verified_highlights, "generate_answer", fake_generate_answer)
+    monkeypatch.setattr(query_verified_highlights, "verify_answer", fake_verify_answer)
+    app.dependency_overrides[get_session] = _get_test_session
+
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/query/verified/grouped/highlights",
+            json={"question": "Which port does the system use?", "source_ids": []},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    summary = payload["verification_summary"]
+    assert summary["has_contradictions"] is True
+    assert summary["contradicted_count"] == 1
+    assert summary["overall_verdict"] == "HAS_CONTRADICTIONS"
+    assert payload["answer"].startswith(CONTRADICTION_PREFIX)
+    assert isinstance(payload.get("citation_groups"), list)

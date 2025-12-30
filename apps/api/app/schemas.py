@@ -120,10 +120,28 @@ class ClaimHighlightOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class VerificationOverallVerdict(str, Enum):
+    OK = "OK"
+    HAS_CONTRADICTIONS = "HAS_CONTRADICTIONS"
+    INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+
+
+class VerificationSummaryOut(BaseModel):
+    supported_count: int
+    weak_support_count: int
+    unsupported_count: int
+    contradicted_count: int
+    conflicting_count: int
+    has_contradictions: bool
+    overall_verdict: VerificationOverallVerdict
+    model_config = ConfigDict(from_attributes=True)
+
+
 class QueryVerifiedResponse(BaseModel):
     answer: str
     citations: list[CitationOut]
     claims: list[ClaimOut]
+    verification_summary: VerificationSummaryOut
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -132,6 +150,7 @@ class QueryVerifiedGroupedResponse(BaseModel):
     citations: list[CitationOut]
     claims: list[ClaimOut]
     citation_groups: list[CitationGroupOut]
+    verification_summary: VerificationSummaryOut
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -139,6 +158,7 @@ class QueryVerifiedHighlightsResponse(BaseModel):
     answer: str
     citations: list[CitationOut]
     claims: list[ClaimHighlightOut]
+    verification_summary: VerificationSummaryOut
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -147,4 +167,5 @@ class QueryVerifiedGroupedHighlightsResponse(BaseModel):
     citations: list[CitationOut]
     claims: list[ClaimHighlightOut]
     citation_groups: list[CitationGroupOut]
+    verification_summary: VerificationSummaryOut
     model_config = ConfigDict(from_attributes=True)

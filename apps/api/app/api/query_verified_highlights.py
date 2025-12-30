@@ -17,7 +17,11 @@ from apps.api.app.security import require_api_key
 from apps.api.app.services.highlights import add_highlights_to_claims
 from apps.api.app.services.rag import build_snippet, compute_absolute_offsets, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
-from apps.api.app.services.verify import verify_answer
+from apps.api.app.services.verify import (
+    apply_contradiction_prefix,
+    summarize_claims,
+    verify_answer,
+)
 from packages.shared_db.models import Answer, Query
 from packages.shared_db.openai_client import embed_texts
 
@@ -82,6 +86,8 @@ def query_verified_highlights(
         )
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
+    verification_summary = summarize_claims(claims, answer_text, len(citations))
+    answer_text = apply_contradiction_prefix(answer_text, verification_summary)
     highlighted_claims = add_highlights_to_claims(payload.question, claims, top_chunks)
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     raw_highlights = [claim.model_dump(mode="json") for claim in highlighted_claims]
@@ -93,6 +99,7 @@ def query_verified_highlights(
             "ids": [str(cid) for cid in cited_ids],
             "claims": raw_claims,
             "claims_highlights": raw_highlights,
+            "verification_summary": verification_summary.model_dump(mode="json"),
         },
     )
     session.add(answer_row)
@@ -112,6 +119,7 @@ def query_verified_highlights(
         answer=answer_text,
         citations=citations,
         claims=highlighted_claims,
+        verification_summary=verification_summary,
     )
 
 
@@ -179,6 +187,8 @@ def query_verified_grouped_highlights(
         )
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
+    verification_summary = summarize_claims(claims, answer_text, len(citations))
+    answer_text = apply_contradiction_prefix(answer_text, verification_summary)
     highlighted_claims = add_highlights_to_claims(payload.question, claims, top_chunks)
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     raw_highlights = [claim.model_dump(mode="json") for claim in highlighted_claims]
@@ -190,6 +200,7 @@ def query_verified_grouped_highlights(
             "ids": [str(cid) for cid in cited_ids],
             "claims": raw_claims,
             "claims_highlights": raw_highlights,
+            "verification_summary": verification_summary.model_dump(mode="json"),
         },
     )
     session.add(answer_row)
@@ -211,4 +222,5 @@ def query_verified_grouped_highlights(
         citations=citations,
         claims=highlighted_claims,
         citation_groups=citation_groups,
+        verification_summary=verification_summary,
     )
