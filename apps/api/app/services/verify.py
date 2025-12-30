@@ -9,6 +9,7 @@ from apps.api.app.schemas import (
     AnswerStyle,
     CitationGroupOut,
     CitationOut,
+    EvidenceHighlightOut,
     ClaimHighlightOut,
     ClaimOut,
     EvidenceOut,
@@ -159,6 +160,45 @@ def normalize_verification_summary_payload(raw: dict[str, Any]) -> dict[str, Any
 
 def coerce_claims_payload(raw_claims: list[dict[str, Any]] | None) -> list[ClaimOut]:
     return _coerce_raw_claims(raw_claims)
+
+
+def coerce_highlight_claims_payload(raw_claims: Any) -> list[ClaimHighlightOut]:
+    if not isinstance(raw_claims, list):
+        return []
+    claims: list[ClaimHighlightOut] = []
+    for item in raw_claims:
+        if not isinstance(item, dict):
+            continue
+        claim_text = str(item.get("claim_text") or "")
+        verdict = _coerce_verdict(item.get("verdict")) or Verdict.UNSUPPORTED
+        support_score = _coerce_score(item.get("support_score"))
+        contradiction_score = _coerce_score(item.get("contradiction_score"))
+        evidence = _coerce_highlight_evidence(item.get("evidence"))
+        claims.append(
+            ClaimHighlightOut(
+                claim_text=claim_text,
+                verdict=verdict,
+                support_score=support_score,
+                contradiction_score=contradiction_score,
+                evidence=evidence,
+            )
+        )
+    return claims
+
+
+def coerce_highlight_claims_from_claims(
+    claims: list[ClaimOut],
+) -> list[ClaimHighlightOut]:
+    return [
+        ClaimHighlightOut(
+            claim_text=claim.claim_text,
+            verdict=claim.verdict,
+            support_score=claim.support_score,
+            contradiction_score=claim.contradiction_score,
+            evidence=[],
+        )
+        for claim in claims
+    ]
 
 
 def normalize_verification_summary(
@@ -762,6 +802,39 @@ def _coerce_int(raw: Any) -> int:
     return value
 
 
+def _coerce_optional_int(raw: Any) -> int | None:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if value < 0:
+        return None
+    return value
+
+
+def _coerce_uuid(raw: Any) -> UUID | None:
+    if isinstance(raw, UUID):
+        return raw
+    if not isinstance(raw, str):
+        return None
+    try:
+        return UUID(raw)
+    except ValueError:
+        return None
+
+
+def _coerce_relation(raw: Any) -> EvidenceRelation | None:
+    if isinstance(raw, EvidenceRelation):
+        return raw
+    if not isinstance(raw, str):
+        return None
+    normalized = raw.strip().upper()
+    try:
+        return EvidenceRelation(normalized)
+    except ValueError:
+        return None
+
+
 def _coerce_overall_verdict(
     raw: Any,
 ) -> VerificationOverallVerdict | None:
@@ -809,6 +882,51 @@ def _coerce_raw_claims(raw_claims: list[dict[str, Any]] | None) -> list[ClaimOut
             )
         )
     return claims
+
+
+def _coerce_highlight_evidence(raw: Any) -> list[EvidenceHighlightOut]:
+    if not isinstance(raw, list):
+        return []
+    evidence: list[EvidenceHighlightOut] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        chunk_id = _coerce_uuid(item.get("chunk_id"))
+        relation = _coerce_relation(item.get("relation"))
+        if chunk_id is None or relation is None:
+            continue
+        snippet = str(item.get("snippet") or "")
+        snippet_start = _coerce_optional_int(item.get("snippet_start"))
+        snippet_end = _coerce_optional_int(item.get("snippet_end"))
+        highlight_start = _coerce_optional_int(item.get("highlight_start"))
+        highlight_end = _coerce_optional_int(item.get("highlight_end"))
+        highlight_text = item.get("highlight_text")
+        if not (
+            isinstance(highlight_start, int)
+            and isinstance(highlight_end, int)
+            and highlight_start < highlight_end
+            and isinstance(highlight_text, str)
+        ):
+            highlight_start = None
+            highlight_end = None
+            highlight_text = None
+        absolute_start = _coerce_optional_int(item.get("absolute_start"))
+        absolute_end = _coerce_optional_int(item.get("absolute_end"))
+        evidence.append(
+            EvidenceHighlightOut(
+                chunk_id=chunk_id,
+                relation=relation,
+                snippet=snippet,
+                snippet_start=snippet_start,
+                snippet_end=snippet_end,
+                highlight_start=highlight_start,
+                highlight_end=highlight_end,
+                highlight_text=highlight_text,
+                absolute_start=absolute_start,
+                absolute_end=absolute_end,
+            )
+        )
+    return evidence
 
 
 def _coerce_verdict(raw: Any) -> Verdict | None:

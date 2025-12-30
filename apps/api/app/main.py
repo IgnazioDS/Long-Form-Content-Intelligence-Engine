@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from apps.api.app.api import (
     answers,
+    answers_highlights,
     health,
     query,
     query_verified,
@@ -25,3 +26,4 @@ app.include_router(query.router)
 app.include_router(query_verified.router)
 app.include_router(query_verified_highlights.router)
 app.include_router(answers.router)
+app.include_router(answers_highlights.router)
