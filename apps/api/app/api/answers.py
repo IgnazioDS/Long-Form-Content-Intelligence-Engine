@@ -9,9 +9,10 @@ from apps.api.app.deps import get_session
 from apps.api.app.schemas import QueryVerifiedResponse
 from apps.api.app.security import require_api_key
 from apps.api.app.services.verify import (
-    coerce_claims_payload,
     coerce_citations_payload,
+    coerce_claims_payload,
     normalize_verification_summary,
+    select_summary_inputs,
 )
 from packages.shared_db.models import Answer
 
@@ -36,12 +37,15 @@ def get_answer(
     citations = coerce_citations_payload(raw_citations.get("citations"))
 
     claims = coerce_claims_payload(raw_claims)
+    raw_claims_for_summary, claims_for_summary = select_summary_inputs(
+        raw_claims, None, claims
+    )
     verification_summary = normalize_verification_summary(
         answer_row.answer,
-        raw_claims,
+        raw_claims_for_summary,
         raw_summary,
         citations_count,
-        claims=claims,
+        claims=claims_for_summary,
     )
     answer_style = verification_summary.answer_style
 

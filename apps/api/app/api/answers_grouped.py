@@ -18,6 +18,7 @@ from apps.api.app.services.verify import (
     coerce_highlight_claims_from_claims,
     coerce_highlight_claims_payload,
     normalize_verification_summary,
+    select_summary_inputs,
 )
 from packages.shared_db.models import Answer
 
@@ -42,16 +43,10 @@ def get_answer_grouped(
     citations_count = len(raw_ids) if isinstance(raw_ids, list) else 0
     citations = coerce_citations_payload(raw_citations.get("citations"))
 
-    raw_claims_list = raw_claims if isinstance(raw_claims, list) and raw_claims else None
-    raw_highlights_list = (
-        raw_highlights if isinstance(raw_highlights, list) and raw_highlights else None
-    )
     claims = coerce_claims_payload(raw_claims)
-    raw_claims_for_summary = raw_claims_list
-    claims_for_summary = claims if raw_claims_list is not None else None
-    if raw_claims_for_summary is None and raw_highlights_list is not None:
-        raw_claims_for_summary = raw_highlights_list
-        claims_for_summary = None
+    raw_claims_for_summary, claims_for_summary = select_summary_inputs(
+        raw_claims, raw_highlights, claims
+    )
 
     verification_summary = normalize_verification_summary(
         answer_row.answer,
@@ -103,15 +98,9 @@ def get_answer_grouped_highlights(
     else:
         claims_out = coerce_highlight_claims_from_claims(base_claims)
 
-    raw_claims_list = raw_claims if isinstance(raw_claims, list) and raw_claims else None
-    raw_highlights_list = (
-        raw_highlights if isinstance(raw_highlights, list) and raw_highlights else None
+    raw_claims_for_summary, claims_for_summary = select_summary_inputs(
+        raw_claims, raw_highlights, base_claims
     )
-    raw_claims_for_summary = raw_claims_list
-    claims_for_summary = base_claims if raw_claims_list is not None else None
-    if raw_claims_for_summary is None and raw_highlights_list is not None:
-        raw_claims_for_summary = raw_highlights_list
-        claims_for_summary = None
 
     verification_summary = normalize_verification_summary(
         answer_row.answer,

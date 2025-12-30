@@ -174,3 +174,72 @@ def test_get_answer_grouped_highlights_missing_summary_derives() -> None:
     assert payload["verification_summary"]["overall_verdict"] == (
         VerificationOverallVerdict.HAS_CONTRADICTIONS.value
     )
+
+
+def test_get_answer_grouped_highlights_hydrates_citation_groups() -> None:
+    chunk_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    answer_row = _make_answer(
+        "Ok.",
+        raw_citations={
+            "ids": ["one"],
+            "citations": [
+                {
+                    "chunk_id": str(chunk_id),
+                    "source_id": str(source_id),
+                    "source_title": "Doc",
+                    "snippet": "Snippet text.",
+                }
+            ],
+            "citation_groups": [
+                {
+                    "source_id": str(source_id),
+                    "source_title": "Doc",
+                    "citations": [
+                        {
+                            "chunk_id": str(chunk_id),
+                            "source_id": str(source_id),
+                            "source_title": "Doc",
+                            "snippet": "Snippet text.",
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}/grouped/highlights")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["answer_style"] == payload["verification_summary"]["answer_style"]
+    assert len(payload["citations"]) == 1
+    assert len(payload["citation_groups"]) == 1
+    assert payload["citation_groups"][0]["source_id"] == str(source_id)
+
+
+def test_get_answer_grouped_highlights_filters_bad_citation_groups() -> None:
+    answer_row = _make_answer(
+        "Ok.",
+        raw_citations={"citation_groups": "not-a-list"},
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}/grouped/highlights")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["citation_groups"] == []

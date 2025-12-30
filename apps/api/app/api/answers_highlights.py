@@ -9,11 +9,12 @@ from apps.api.app.deps import get_session
 from apps.api.app.schemas import QueryVerifiedHighlightsResponse
 from apps.api.app.security import require_api_key
 from apps.api.app.services.verify import (
-    coerce_claims_payload,
     coerce_citations_payload,
+    coerce_claims_payload,
     coerce_highlight_claims_from_claims,
     coerce_highlight_claims_payload,
     normalize_verification_summary,
+    select_summary_inputs,
 )
 from packages.shared_db.models import Answer
 
@@ -41,26 +42,23 @@ def get_answer_highlights(
     citations_count = len(raw_ids) if isinstance(raw_ids, list) else 0
     citations = coerce_citations_payload(raw_citations.get("citations"))
 
+    base_claims = coerce_claims_payload(raw_claims)
     highlight_claims = coerce_highlight_claims_payload(raw_highlights)
     if highlight_claims:
         claims_out = highlight_claims
     else:
-        base_claims = coerce_claims_payload(raw_claims)
         claims_out = coerce_highlight_claims_from_claims(base_claims)
 
-    raw_claims_list = raw_claims if isinstance(raw_claims, list) and raw_claims else None
-    raw_highlights_list = (
-        raw_highlights if isinstance(raw_highlights, list) and raw_highlights else None
+    raw_claims_for_summary, claims_for_summary = select_summary_inputs(
+        raw_claims, raw_highlights, base_claims
     )
-    raw_claims_for_summary = raw_claims_list
-    if raw_claims_for_summary is None and raw_highlights_list is not None:
-        raw_claims_for_summary = raw_highlights_list
 
     verification_summary = normalize_verification_summary(
         answer_row.answer,
         raw_claims_for_summary,
         raw_summary,
         citations_count,
+        claims=claims_for_summary,
     )
     answer_style = verification_summary.answer_style
 

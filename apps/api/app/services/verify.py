@@ -229,6 +229,20 @@ def coerce_citations_payload(raw: Any) -> list[CitationOut]:
     return _coerce_citations_payload(raw)
 
 
+def select_summary_inputs(
+    raw_claims: Any,
+    raw_highlights: Any,
+    coerced_claims: list[ClaimOut],
+) -> tuple[list[dict[str, Any]] | None, list[ClaimOut] | None]:
+    raw_claims_list = raw_claims if isinstance(raw_claims, list) else None
+    if raw_claims_list:
+        return raw_claims_list, coerced_claims
+    raw_highlights_list = raw_highlights if isinstance(raw_highlights, list) else None
+    if raw_highlights_list:
+        return raw_highlights_list, None
+    return None, None
+
+
 def normalize_verification_summary(
     answer_text: str,
     raw_claims: list[dict[str, Any]] | None,

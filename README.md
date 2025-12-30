@@ -106,6 +106,18 @@ curl -X POST http://localhost:8000/query/verified \
   -d '{"question": "What is the main thesis?", "source_ids": ["YOUR_SOURCE_UUID"]}'
 ```
 
+Persisted-answer read endpoints (API key required if `API_KEY` is set):
+- `GET /answers/{answer_id}`
+- `GET /answers/{answer_id}/highlights`
+- `GET /answers/{answer_id}/grouped`
+- `GET /answers/{answer_id}/grouped/highlights`
+Legacy-tolerant hydration:
+- Missing `verification_summary`/`answer_style` is derived and normalized to satisfy strict contracts.
+- Summary counts and `answer_style` are repaired to stay consistent with claims/verdicts.
+Citations behavior:
+- If `raw_citations.citations` or `raw_citations.citation_groups` are persisted, they are returned.
+- If only legacy ids exist, citations may be empty; normalization still uses ids length as `citations_count`.
+
 Delete a source:
 ```bash
 curl -X DELETE http://localhost:8000/sources/YOUR_SOURCE_UUID
