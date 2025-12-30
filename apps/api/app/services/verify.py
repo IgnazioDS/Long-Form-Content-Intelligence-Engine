@@ -53,6 +53,7 @@ _MAX_SUPPORT_EVIDENCE = 2
 _MAX_CONTRADICT_EVIDENCE = 1
 _CHUNK_TEXT_LIMIT = 900
 _FAKE_SUPPORT_THRESHOLD = 0.4
+_ANSWER_STYLE_VALUES = {style.value for style in AnswerStyle}
 CONTRADICTION_PREFIX = (
     "Contradictions detected in the source material. "
     "See claims below for details.\n\n"
@@ -119,6 +120,38 @@ def summarize_claims(
         overall_verdict=overall_verdict,
         answer_style=AnswerStyle.ORIGINAL,
     )
+
+
+def normalize_verification_summary_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    if not raw:
+        return raw
+    normalized = dict(raw)
+    raw_style = normalized.get("answer_style")
+    normalized_style: str | None = None
+    if isinstance(raw_style, AnswerStyle):
+        normalized_style = raw_style.value
+    elif isinstance(raw_style, str):
+        candidate = raw_style.strip().upper()
+        if candidate in _ANSWER_STYLE_VALUES:
+            normalized_style = candidate
+
+    if normalized_style is None:
+        verdict = normalized.get("overall_verdict")
+        if isinstance(verdict, VerificationOverallVerdict):
+            verdict_value = verdict.value
+        elif verdict is None:
+            verdict_value = ""
+        else:
+            verdict_value = str(verdict).strip().upper()
+        if verdict_value == VerificationOverallVerdict.INSUFFICIENT_EVIDENCE.value:
+            normalized_style = AnswerStyle.INSUFFICIENT_EVIDENCE.value
+        elif normalized.get("has_contradictions") is True:
+            normalized_style = AnswerStyle.CONFLICT_REWRITTEN.value
+        else:
+            normalized_style = AnswerStyle.ORIGINAL.value
+
+    normalized["answer_style"] = normalized_style
+    return normalized
 
 
 def rewrite_verified_answer(
