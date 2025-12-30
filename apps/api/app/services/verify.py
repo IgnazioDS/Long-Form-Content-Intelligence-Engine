@@ -9,9 +9,9 @@ from apps.api.app.schemas import (
     ClaimOut,
     EvidenceOut,
     EvidenceRelation,
+    Verdict,
     VerificationOverallVerdict,
     VerificationSummaryOut,
-    Verdict,
 )
 from apps.api.app.services.rag import build_snippet, compute_absolute_offsets
 from apps.api.app.services.retrieval import RetrievedChunk
@@ -248,6 +248,7 @@ def _align_claims_fake(
     claims_out: list[ClaimOut] = []
     for claim_text in claim_texts:
         claim_tokens = _tokenize(claim_text)
+        claim_numbers, claim_words = _split_numeric_tokens(claim_tokens)
         best_id = None
         best_score = 0.0
         for chunk_id, tokens in chunk_tokens.items():
@@ -257,14 +258,30 @@ def _align_claims_fake(
                 best_id = chunk_id
         support_score = best_score
         contradiction_score = 0.0
+        contradict_ids: list[str] = []
+        if claim_numbers and claim_words:
+            for chunk_id, tokens in chunk_tokens.items():
+                if chunk_id == best_id:
+                    continue
+                chunk_numbers, chunk_words = _split_numeric_tokens(tokens)
+                if not chunk_numbers:
+                    continue
+                if not chunk_numbers.isdisjoint(claim_numbers):
+                    continue
+                overlap = _overlap_score(claim_words, chunk_words)
+                if overlap >= _FAKE_SUPPORT_THRESHOLD:
+                    contradict_ids.append(chunk_id)
+                    contradiction_score = max(contradiction_score, max(overlap, 0.6))
         verdict = _compute_verdict(support_score, contradiction_score)
         support_ids: list[str] = []
         if best_id and support_score >= _FAKE_SUPPORT_THRESHOLD:
             support_ids = _prioritize_ids([best_id], preferred_ids)
+        if contradict_ids:
+            contradict_ids = _prioritize_ids(contradict_ids, preferred_ids)
         evidence = _build_evidence(
             chunk_lookup,
             support_ids,
-            [],
+            contradict_ids,
             _MAX_SUPPORT_EVIDENCE,
             _MAX_CONTRADICT_EVIDENCE,
         )
@@ -292,6 +309,12 @@ def _safe_json_load(content: str) -> dict[str, Any]:
 
 def _tokenize(text: str) -> set[str]:
     return {match.group(0) for match in _TOKEN_RE.finditer(text.casefold())}
+
+
+def _split_numeric_tokens(tokens: set[str]) -> tuple[set[str], set[str]]:
+    numeric = {token for token in tokens if token.isdigit()}
+    non_numeric = {token for token in tokens if token not in numeric}
+    return numeric, non_numeric
 
 
 def _overlap_score(left: set[str], right: set[str]) -> float:
