@@ -35,13 +35,6 @@ POST_RETRY_LIMIT = 3
 RETRY_BACKOFF_SECONDS = 0.5
 HEALTH_POLL_INTERVAL_SECONDS = 2.0
 
-INSUFFICIENT_EVIDENCE_PHRASES = (
-    "insufficient evidence",
-    "not enough evidence",
-    "not enough information",
-    "cannot answer",
-    "no relevant information",
-)
 CONTRADICTION_PREFIX_MARKER = "contradictions detected in the source material"
 ALLOWED_RELATIONS = {"SUPPORTS", "CONTRADICTS", "RELATED"}
 ANSWER_STYLES = {"ORIGINAL", "CONFLICT_REWRITTEN", "INSUFFICIENT_EVIDENCE"}
@@ -83,12 +76,19 @@ def get_env_value(name: str) -> str | None:
     return None
 
 
+def is_truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"true", "1", "yes", "y"}
+
+
 def require_openai_env() -> None:
     provider = (get_env_value("AI_PROVIDER") or "").strip().lower() or "openai"
     if provider != "openai":
         raise RuntimeError(
             "AI_PROVIDER must be set to openai for eval-openai-verified-smoke"
         )
+    debug_value = get_env_value("DEBUG")
+    if not is_truthy(debug_value):
+        raise RuntimeError("DEBUG must be set to true for eval-openai-verified-smoke")
     api_key = get_env_value("OPENAI_API_KEY") or ""
     if not api_key.strip():
         raise RuntimeError("OPENAI_API_KEY is required for eval-openai-verified-smoke")
@@ -144,9 +144,8 @@ def get_git_commit() -> str | None:
     return output.strip() or None
 
 
-def contains_insufficient_evidence(answer: str) -> bool:
-    lowered = answer.strip().lower()
-    return any(phrase in lowered for phrase in INSUFFICIENT_EVIDENCE_PHRASES)
+def is_insufficient_evidence_answer(answer: str) -> bool:
+    return answer.strip().lower().startswith("insufficient evidence")
 
 
 def post_with_retries(
@@ -305,7 +304,7 @@ def validate_summary(
 
     claims_count = len(claims)
     all_unsupported = claims_count > 0 and counts.get("UNSUPPORTED", 0) == claims_count
-    insufficient_expected = contains_insufficient_evidence(answer) or (
+    insufficient_expected = is_insufficient_evidence_answer(answer) or (
         citations_count == 0 and all_unsupported
     )
     if insufficient_expected:
@@ -494,7 +493,7 @@ def evaluate_endpoint(
         if not claims:
             failures.append("missing_claims")
     elif expected == "INSUFFICIENT_EVIDENCE":
-        if not answer or not contains_insufficient_evidence(answer):
+        if not answer or not is_insufficient_evidence_answer(answer):
             failures.append("missing_insufficient_evidence_marker")
     else:
         failures.append(f"unknown_expected_behavior({expected})")

@@ -236,6 +236,8 @@ Outputs are written to:
 - `tests/eval/out/eval_evidence_integrity_results.json`
 - `tests/eval/out/eval_evidence_integrity_report.md`
 
+OpenAI smoke outputs use fixed filenames and overwrite prior runs in `tests/eval/out`.
+
 ## Notes
 
 - Retrieval uses a lightweight reranker after hybrid search to boost relevance before
