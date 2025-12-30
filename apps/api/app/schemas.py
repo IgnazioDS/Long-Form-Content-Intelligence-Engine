@@ -140,16 +140,8 @@ class VerificationSummaryOut(BaseModel):
     conflicting_count: int
     has_contradictions: bool
     overall_verdict: VerificationOverallVerdict
-    answer_style: AnswerStyle | None = None
+    answer_style: AnswerStyle
     model_config = ConfigDict(from_attributes=True)
-
-    @model_validator(mode="after")
-    def _validate_answer_style(self) -> "VerificationSummaryOut":
-        if self.answer_style is None:
-            return self
-        if not isinstance(self.answer_style, AnswerStyle):
-            raise ValueError("answer_style must be AnswerStyle or None")
-        return self
 
 
 class QueryVerifiedResponse(BaseModel):
@@ -161,7 +153,7 @@ class QueryVerifiedResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="after")
-    def _validate_answer_style(self) -> "QueryVerifiedResponse":
+    def _validate_answer_style(self) -> QueryVerifiedResponse:
         summary_style = self.verification_summary.answer_style
         if summary_style is None:
             raise ValueError("verification_summary.answer_style is required")
@@ -180,7 +172,7 @@ class QueryVerifiedGroupedResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="after")
-    def _validate_answer_style(self) -> "QueryVerifiedGroupedResponse":
+    def _validate_answer_style(self) -> QueryVerifiedGroupedResponse:
         summary_style = self.verification_summary.answer_style
         if summary_style is None:
             raise ValueError("verification_summary.answer_style is required")
@@ -198,7 +190,7 @@ class QueryVerifiedHighlightsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="after")
-    def _validate_answer_style(self) -> "QueryVerifiedHighlightsResponse":
+    def _validate_answer_style(self) -> QueryVerifiedHighlightsResponse:
         summary_style = self.verification_summary.answer_style
         if summary_style is None:
             raise ValueError("verification_summary.answer_style is required")
@@ -217,7 +209,7 @@ class QueryVerifiedGroupedHighlightsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="after")
-    def _validate_answer_style(self) -> "QueryVerifiedGroupedHighlightsResponse":
+    def _validate_answer_style(self) -> QueryVerifiedGroupedHighlightsResponse:
         summary_style = self.verification_summary.answer_style
         if summary_style is None:
             raise ValueError("verification_summary.answer_style is required")

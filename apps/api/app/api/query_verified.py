@@ -91,7 +91,6 @@ def query_verified(
     )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     summary_payload = verification_summary.model_dump(mode="json")
-    summary_payload["answer_style"] = answer_style.value
 
     answer_row = Answer(
         query_id=query_row.id,
@@ -191,7 +190,6 @@ def query_verified_grouped(
     )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     summary_payload = verification_summary.model_dump(mode="json")
-    summary_payload["answer_style"] = answer_style.value
 
     answer_row = Answer(
         query_id=query_row.id,

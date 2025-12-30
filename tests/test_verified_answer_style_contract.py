@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import pytest
+from pytest import raises
 
 from apps.api.app.schemas import (
     AnswerStyle,
     ClaimOut,
     QueryVerifiedResponse,
+    Verdict,
     VerificationOverallVerdict,
     VerificationSummaryOut,
-    Verdict,
 )
 
 
@@ -24,7 +24,7 @@ def test_verified_response_answer_style_mismatch() -> None:
         answer_style=AnswerStyle.CONFLICT_REWRITTEN,
     )
 
-    with pytest.raises(ValueError):
+    with raises(ValueError):
         QueryVerifiedResponse(
             answer="Ok.",
             answer_style=AnswerStyle.ORIGINAL,

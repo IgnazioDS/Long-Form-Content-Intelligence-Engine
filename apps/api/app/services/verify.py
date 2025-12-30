@@ -117,6 +117,7 @@ def summarize_claims(
         conflicting_count=conflicting_count,
         has_contradictions=has_contradictions,
         overall_verdict=overall_verdict,
+        answer_style=AnswerStyle.ORIGINAL,
     )
 
 
@@ -126,8 +127,6 @@ def rewrite_verified_answer(
     claims: list[ClaimOut],
     verification_summary: VerificationSummaryOut,
 ) -> tuple[str, AnswerStyle]:
-    if verification_summary.answer_style is None:
-        verification_summary.answer_style = AnswerStyle.ORIGINAL
     clean_answer = answer
     if clean_answer.startswith(CONTRADICTION_PREFIX):
         clean_answer = clean_answer[len(CONTRADICTION_PREFIX) :].lstrip()
