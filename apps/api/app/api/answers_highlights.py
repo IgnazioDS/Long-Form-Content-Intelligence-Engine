@@ -46,9 +46,13 @@ def get_answer_highlights(
         base_claims = coerce_claims_payload(raw_claims)
         claims_out = coerce_highlight_claims_from_claims(base_claims)
 
+    raw_claims_for_summary = raw_claims
+    if raw_claims_for_summary is None and isinstance(raw_highlights, list):
+        raw_claims_for_summary = raw_highlights
+
     verification_summary = normalize_verification_summary(
         answer_row.answer,
-        raw_claims,
+        raw_claims_for_summary,
         raw_summary,
         citations_count,
     )
