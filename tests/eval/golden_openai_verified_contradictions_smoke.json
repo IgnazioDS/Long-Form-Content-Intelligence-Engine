@@ -1,0 +1,13 @@
+{
+  "fixture": "contradictions_smoke.pdf",
+  "cases": [
+    {
+      "id": "openai-verified-contradictions-001",
+      "question": "Which port does the API use?",
+      "expected_behavior": "ANSWERABLE",
+      "expect_contradictions": true,
+      "require_conflict_prefix": true,
+      "require_answer_style": "CONFLICT_REWRITTEN"
+    }
+  ]
+}

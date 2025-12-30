@@ -1,4 +1,4 @@
-.PHONY: up down test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-openai-verified-smoke eval-evidence-integrity install-dev check
+.PHONY: up down test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-openai-verified-smoke eval-openai-verified-contradictions-smoke eval-evidence-integrity install-dev check
 
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
@@ -43,6 +43,9 @@ eval-openai-smoke:
 
 eval-openai-verified-smoke:
 	AI_PROVIDER=openai DEBUG=true $(PYTHON) tests/eval/run_eval_openai_verified_smoke.py
+
+eval-openai-verified-contradictions-smoke:
+	AI_PROVIDER=openai DEBUG=true $(PYTHON) tests/eval/run_eval_openai_verified_smoke.py --dataset tests/eval/golden_openai_verified_contradictions_smoke.json
 
 eval-evidence-integrity:
 	AI_PROVIDER=openai DEBUG=true $(PYTHON) tests/eval/run_eval_evidence_integrity.py

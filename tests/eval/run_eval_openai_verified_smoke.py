@@ -148,6 +148,14 @@ def is_insufficient_evidence_answer(answer: str) -> bool:
     return answer.strip().lower().startswith("insufficient evidence")
 
 
+def parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"true", "1", "yes", "y"}
+
+
 def post_with_retries(
     client: httpx.Client,
     url: str,
@@ -441,6 +449,9 @@ def evaluate_endpoint(
     valid_chunk_ids: set[str],
     chunk_text_cache: dict[str, str],
     check_highlights: bool,
+    expect_contradictions: bool,
+    require_conflict_prefix: bool,
+    require_answer_style: str | None,
 ) -> tuple[list[str], dict[str, int], bool]:
     failures: list[str] = []
     counts = {
@@ -462,10 +473,13 @@ def evaluate_endpoint(
     answer_raw = payload.get("answer")
     answer = str(answer_raw).strip() if isinstance(answer_raw, str) else ""
     answer_style = str(payload.get("answer_style", "")).strip().upper()
+    prefix_present = answer.lower().startswith(CONTRADICTION_PREFIX_MARKER)
 
     citations_raw = payload.get("citations")
     claims_raw = payload.get("claims")
     summary_payload = payload.get("verification_summary")
+    summary_has_contradictions: bool | None = None
+    summary_overall = ""
 
     if not isinstance(answer_raw, str):
         failures.append("invalid_answer_type")
@@ -538,6 +552,35 @@ def evaluate_endpoint(
                     f"index={claim_idx}, evidence={ev_idx}, id={chunk_id})"
                 )
 
+    if require_conflict_prefix and not prefix_present:
+        failures.append("missing_conflict_prefix")
+    if require_answer_style:
+        required_style = str(require_answer_style).strip().upper()
+        if required_style not in ANSWER_STYLES:
+            failures.append(f"invalid_required_answer_style({required_style})")
+        elif answer_style != required_style:
+            failures.append(
+                "answer_style_required_mismatch("
+                f"expected={required_style}, got={answer_style})"
+            )
+
+    if isinstance(summary_payload, dict):
+        raw_has = summary_payload.get("has_contradictions")
+        if isinstance(raw_has, bool):
+            summary_has_contradictions = raw_has
+        raw_overall = summary_payload.get("overall_verdict")
+        if raw_overall is not None:
+            summary_overall = str(raw_overall).strip().upper()
+
+    if expect_contradictions:
+        if summary_has_contradictions is not True:
+            failures.append("expected_contradictions_missing")
+        if summary_overall != "HAS_CONTRADICTIONS":
+            failures.append(
+                "expected_overall_verdict_conflicts("
+                f"got={summary_overall or 'missing'})"
+            )
+
     summary_consistent = validate_summary(
         answer=answer,
         answer_style=answer_style,
@@ -573,6 +616,9 @@ def evaluate_case(
 ) -> tuple[dict[str, Any], dict[str, int]]:
     question = str(case.get("question", "")).strip()
     expected = str(case.get("expected_behavior", "")).strip().upper()
+    expect_contradictions = parse_bool(case.get("expect_contradictions"))
+    require_conflict_prefix = parse_bool(case.get("require_conflict_prefix"))
+    require_answer_style = case.get("require_answer_style")
 
     all_failures: list[str] = []
     counts_total = {
@@ -599,6 +645,9 @@ def evaluate_case(
             valid_chunk_ids=valid_chunk_ids,
             chunk_text_cache=chunk_text_cache,
             check_highlights=check_highlights,
+            expect_contradictions=expect_contradictions,
+            require_conflict_prefix=require_conflict_prefix,
+            require_answer_style=require_answer_style,
         )
         if summary_consistent:
             counts_total["summary_consistency_passed"] += 1

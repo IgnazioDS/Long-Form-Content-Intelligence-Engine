@@ -182,7 +182,17 @@ Eval runners also respect:
    AI_PROVIDER=openai DEBUG=true OPENAI_API_KEY=... docker compose up --build -d
    make eval-openai-verified-smoke
    ```
-8. Run the evidence integrity harness:
+8. Run the OpenAI verified contradictions smoke harness:
+   ```bash
+   make eval-openai-verified-contradictions-smoke
+   ```
+   Requires `AI_PROVIDER=openai`, `DEBUG=true`, and `OPENAI_API_KEY` (exported or set in `.env`).
+   Example:
+   ```bash
+   AI_PROVIDER=openai DEBUG=true OPENAI_API_KEY=... docker compose up --build -d
+   make eval-openai-verified-contradictions-smoke
+   ```
+9. Run the evidence integrity harness:
    ```bash
    make eval-evidence-integrity
    ```
@@ -221,6 +231,11 @@ checked against the full chunk text).
 The OpenAI verified smoke dataset uses `tests/eval/golden_openai_verified_smoke.json` and
 `scripts/fixtures/sample.pdf` to validate verification_summary and answer_style invariants
 for `/query/verified` and `/query/verified/highlights` (no exact answer matching).
+
+The OpenAI verified contradictions smoke dataset uses
+`tests/eval/golden_openai_verified_contradictions_smoke.json` with
+`scripts/fixtures/contradictions_smoke.pdf` to validate conflict rewriting and prefix
+behavior for verified endpoints.
 
 Outputs are written to:
 - `scripts/eval/out/eval_results.json`
