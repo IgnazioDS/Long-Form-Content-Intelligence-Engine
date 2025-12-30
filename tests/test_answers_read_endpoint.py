@@ -170,3 +170,68 @@ def test_get_answer_repairs_inconsistent_counts() -> None:
     assert summary["supported_count"] == 0
     assert summary["unsupported_count"] == 1
     assert payload["answer_style"] == payload["verification_summary"]["answer_style"]
+
+
+def test_get_answer_hydrates_citations() -> None:
+    chunk_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    answer_row = _make_answer(
+        "Ok.",
+        raw_citations={
+            "ids": ["one"],
+            "citations": [
+                {
+                    "chunk_id": str(chunk_id),
+                    "source_id": str(source_id),
+                    "source_title": "Doc",
+                    "page_start": 1,
+                    "page_end": 2,
+                    "snippet": "Snippet text.",
+                }
+            ],
+            "claims": [_raw_claim(Verdict.SUPPORTED)],
+        },
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["citations"]) == 1
+    assert payload["citations"][0]["chunk_id"] == str(chunk_id)
+
+
+def test_get_answer_filters_invalid_citations() -> None:
+    answer_row = _make_answer(
+        "Ok.",
+        raw_citations={
+            "citations": [
+                {"chunk_id": "not-a-uuid", "source_id": "nope", "snippet": "Bad"},
+                {
+                    "chunk_id": str(uuid.uuid4()),
+                    "source_id": str(uuid.uuid4()),
+                    "snippet": "Good",
+                },
+            ],
+        },
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["citations"]) == 1

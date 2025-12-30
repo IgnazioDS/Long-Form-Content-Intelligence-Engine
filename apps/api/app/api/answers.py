@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session
 from apps.api.app.deps import get_session
 from apps.api.app.schemas import QueryVerifiedResponse
 from apps.api.app.security import require_api_key
-from apps.api.app.services.verify import coerce_claims_payload, normalize_verification_summary
+from apps.api.app.services.verify import (
+    coerce_claims_payload,
+    coerce_citations_payload,
+    normalize_verification_summary,
+)
 from packages.shared_db.models import Answer
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
@@ -29,6 +33,7 @@ def get_answer(
     raw_summary = raw_citations.get("verification_summary")
     raw_ids = raw_citations.get("ids", [])
     citations_count = len(raw_ids) if isinstance(raw_ids, list) else 0
+    citations = coerce_citations_payload(raw_citations.get("citations"))
 
     claims = coerce_claims_payload(raw_claims)
     verification_summary = normalize_verification_summary(
@@ -43,7 +48,7 @@ def get_answer(
     return QueryVerifiedResponse(
         answer=answer_row.answer,
         answer_style=answer_style,
-        citations=[],
+        citations=citations,
         claims=claims,
         verification_summary=verification_summary,
     )

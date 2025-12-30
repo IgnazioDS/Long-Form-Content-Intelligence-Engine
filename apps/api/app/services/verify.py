@@ -225,6 +225,10 @@ def coerce_citation_groups_payload(raw_groups: Any) -> list[CitationGroupOut]:
     return groups
 
 
+def coerce_citations_payload(raw: Any) -> list[CitationOut]:
+    return _coerce_citations_payload(raw)
+
+
 def normalize_verification_summary(
     answer_text: str,
     raw_claims: list[dict[str, Any]] | None,

@@ -10,6 +10,7 @@ from apps.api.app.schemas import QueryVerifiedHighlightsResponse
 from apps.api.app.security import require_api_key
 from apps.api.app.services.verify import (
     coerce_claims_payload,
+    coerce_citations_payload,
     coerce_highlight_claims_from_claims,
     coerce_highlight_claims_payload,
     normalize_verification_summary,
@@ -38,6 +39,7 @@ def get_answer_highlights(
     raw_summary = raw_citations.get("verification_summary")
     raw_ids = raw_citations.get("ids", [])
     citations_count = len(raw_ids) if isinstance(raw_ids, list) else 0
+    citations = coerce_citations_payload(raw_citations.get("citations"))
 
     highlight_claims = coerce_highlight_claims_payload(raw_highlights)
     if highlight_claims:
@@ -65,7 +67,7 @@ def get_answer_highlights(
     return QueryVerifiedHighlightsResponse(
         answer=answer_row.answer,
         answer_style=answer_style,
-        citations=[],
+        citations=citations,
         claims=claims_out,
         verification_summary=verification_summary,
     )

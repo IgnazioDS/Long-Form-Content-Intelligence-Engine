@@ -13,6 +13,7 @@ from apps.api.app.schemas import (
 from apps.api.app.security import require_api_key
 from apps.api.app.services.verify import (
     coerce_citation_groups_payload,
+    coerce_citations_payload,
     coerce_claims_payload,
     coerce_highlight_claims_from_claims,
     coerce_highlight_claims_payload,
@@ -39,6 +40,7 @@ def get_answer_grouped(
     raw_summary = raw_citations.get("verification_summary")
     raw_ids = raw_citations.get("ids", [])
     citations_count = len(raw_ids) if isinstance(raw_ids, list) else 0
+    citations = coerce_citations_payload(raw_citations.get("citations"))
 
     raw_claims_list = raw_claims if isinstance(raw_claims, list) and raw_claims else None
     raw_highlights_list = (
@@ -66,7 +68,7 @@ def get_answer_grouped(
     return QueryVerifiedGroupedResponse(
         answer=answer_row.answer,
         answer_style=answer_style,
-        citations=[],
+        citations=citations,
         claims=claims,
         citation_groups=citation_groups,
         verification_summary=verification_summary,
@@ -92,6 +94,7 @@ def get_answer_grouped_highlights(
     raw_summary = raw_citations.get("verification_summary")
     raw_ids = raw_citations.get("ids", [])
     citations_count = len(raw_ids) if isinstance(raw_ids, list) else 0
+    citations = coerce_citations_payload(raw_citations.get("citations"))
 
     base_claims = coerce_claims_payload(raw_claims)
     highlight_claims = coerce_highlight_claims_payload(raw_highlights)
@@ -125,7 +128,7 @@ def get_answer_grouped_highlights(
     return QueryVerifiedGroupedHighlightsResponse(
         answer=answer_row.answer,
         answer_style=answer_style,
-        citations=[],
+        citations=citations,
         claims=claims_out,
         citation_groups=citation_groups,
         verification_summary=verification_summary,
