@@ -119,12 +119,6 @@ def summarize_claims(
     )
 
 
-def apply_contradiction_prefix(answer: str, summary: VerificationSummaryOut) -> str:
-    if summary.has_contradictions and not answer.startswith(CONTRADICTION_PREFIX):
-        return f"{CONTRADICTION_PREFIX}{answer}"
-    return answer
-
-
 def rewrite_verified_answer(
     question: str,
     answer: str,
@@ -138,6 +132,10 @@ def rewrite_verified_answer(
         return answer
     if not verification_summary.has_contradictions:
         return answer
+
+    clean_answer = answer
+    if clean_answer.startswith(CONTRADICTION_PREFIX):
+        clean_answer = clean_answer[len(CONTRADICTION_PREFIX) :].lstrip()
 
     supported = [
         claim.claim_text
@@ -167,6 +165,9 @@ def rewrite_verified_answer(
     ]
     if unsupported:
         sections.append(format_section("What's not supported", unsupported))
+
+    if not supported and not conflicted and not unsupported:
+        return answer
 
     body = "\n\n".join(sections)
     return f"{CONTRADICTION_PREFIX}{body}"
@@ -394,11 +395,12 @@ def _align_claims_fake(
                         continue
                     if question_section and claim_section:
                         sentence_section = _get_section_token(words)
-                        if sentence_section != claim_section:
+                        if sentence_section and sentence_section != claim_section:
                             continue
                     overlap = _overlap_score(claim_words, words)
                     if overlap >= _FAKE_SUPPORT_THRESHOLD:
-                        contradict_ids.append(best_id)
+                        if best_id not in contradict_ids:
+                            contradict_ids.append(best_id)
                         contradiction_score = max(contradiction_score, max(overlap, 0.6))
                         break
             for chunk_id, tokens in chunk_tokens.items():
@@ -406,7 +408,7 @@ def _align_claims_fake(
                     continue
                 if question_section and claim_section:
                     chunk_section = _get_section_token(tokens)
-                    if chunk_section != claim_section:
+                    if chunk_section and chunk_section != claim_section:
                         continue
                 chunk_numbers, chunk_words = _split_numeric_tokens(tokens)
                 if not chunk_numbers:
@@ -415,7 +417,8 @@ def _align_claims_fake(
                     continue
                 overlap = _overlap_score(claim_words, chunk_words)
                 if overlap >= _FAKE_SUPPORT_THRESHOLD:
-                    contradict_ids.append(chunk_id)
+                    if chunk_id not in contradict_ids:
+                        contradict_ids.append(chunk_id)
                     contradiction_score = max(contradiction_score, max(overlap, 0.6))
         verdict = _compute_verdict(support_score, contradiction_score)
         support_ids: list[str] = []
@@ -475,6 +478,7 @@ def _get_section_token(tokens: set[str]) -> str | None:
 def _overlap_score(left: set[str], right: set[str]) -> float:
     if not left or not right:
         return 0.0
+    # Recall-like score: proportion of left tokens covered by right tokens.
     overlap = len(left.intersection(right))
     return overlap / max(1, len(left))
 
