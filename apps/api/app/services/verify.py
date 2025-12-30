@@ -166,7 +166,9 @@ def normalize_verification_summary(
     if raw_summary is not None and not isinstance(raw_summary, dict):
         raise ValueError("verification_summary must be a dict")
     claims = _coerce_raw_claims(raw_claims)
-    count_citations = citations_count or 0
+    count_citations = (
+        0 if citations_count is None else max(0, int(citations_count))
+    )
     if claims:
         summary = summarize_claims(claims, answer_text, count_citations)
     else:
@@ -236,11 +238,20 @@ def _summary_from_raw(
         citations_count == 0 and all_unsupported
     )
     if insufficient_evidence:
-        overall_verdict = VerificationOverallVerdict.INSUFFICIENT_EVIDENCE
+        computed_overall = VerificationOverallVerdict.INSUFFICIENT_EVIDENCE
     elif has_contradictions:
-        overall_verdict = VerificationOverallVerdict.HAS_CONTRADICTIONS
+        computed_overall = VerificationOverallVerdict.HAS_CONTRADICTIONS
     else:
-        overall_verdict = VerificationOverallVerdict.OK
+        computed_overall = VerificationOverallVerdict.OK
+    raw_overall = (
+        _coerce_overall_verdict(raw_summary.get("overall_verdict"))
+        if raw_summary
+        else None
+    )
+    if raw_overall is not None and raw_overall == computed_overall:
+        overall_verdict = raw_overall
+    else:
+        overall_verdict = computed_overall
 
     return VerificationSummaryOut(
         supported_count=supported_count,
@@ -743,6 +754,20 @@ def _coerce_int(raw: Any) -> int:
     if value < 0:
         return 0
     return value
+
+
+def _coerce_overall_verdict(
+    raw: Any,
+) -> VerificationOverallVerdict | None:
+    if isinstance(raw, VerificationOverallVerdict):
+        return raw
+    if not isinstance(raw, str):
+        return None
+    normalized = raw.strip().upper()
+    try:
+        return VerificationOverallVerdict(normalized)
+    except ValueError:
+        return None
 
 
 def _coerce_score(raw: Any) -> float:
