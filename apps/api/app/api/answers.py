@@ -32,7 +32,11 @@ def get_answer(
 
     claims = coerce_claims_payload(raw_claims)
     verification_summary = normalize_verification_summary(
-        answer_row.answer, raw_claims, raw_summary, citations_count
+        answer_row.answer,
+        raw_claims,
+        raw_summary,
+        citations_count,
+        claims=claims,
     )
     answer_style = verification_summary.answer_style
 

@@ -166,10 +166,12 @@ def normalize_verification_summary(
     raw_claims: list[dict[str, Any]] | None,
     raw_summary: dict[str, Any] | None,
     citations_count: int | None,
+    claims: list[ClaimOut] | None = None,
 ) -> VerificationSummaryOut:
     if raw_summary is not None and not isinstance(raw_summary, dict):
         raise ValueError("verification_summary must be a dict")
-    claims = _coerce_raw_claims(raw_claims)
+    if claims is None:
+        claims = _coerce_raw_claims(raw_claims)
     count_citations = (
         0 if citations_count is None else max(0, int(citations_count))
     )
