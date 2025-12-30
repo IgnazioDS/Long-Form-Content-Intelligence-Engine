@@ -201,6 +201,30 @@ def coerce_highlight_claims_from_claims(
     ]
 
 
+def coerce_citation_groups_payload(raw_groups: Any) -> list[CitationGroupOut]:
+    if not isinstance(raw_groups, list):
+        return []
+    groups: list[CitationGroupOut] = []
+    for item in raw_groups:
+        if not isinstance(item, dict):
+            continue
+        source_id = _coerce_uuid(item.get("source_id"))
+        if source_id is None:
+            continue
+        source_title = item.get("source_title")
+        if not isinstance(source_title, str):
+            source_title = None
+        citations = _coerce_citations_payload(item.get("citations"))
+        groups.append(
+            CitationGroupOut(
+                source_id=source_id,
+                source_title=source_title,
+                citations=citations,
+            )
+        )
+    return groups
+
+
 def normalize_verification_summary(
     answer_text: str,
     raw_claims: list[dict[str, Any]] | None,
@@ -927,6 +951,44 @@ def _coerce_highlight_evidence(raw: Any) -> list[EvidenceHighlightOut]:
             )
         )
     return evidence
+
+
+def _coerce_citations_payload(raw: Any) -> list[CitationOut]:
+    if not isinstance(raw, list):
+        return []
+    citations: list[CitationOut] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        chunk_id = _coerce_uuid(item.get("chunk_id"))
+        source_id = _coerce_uuid(item.get("source_id"))
+        if chunk_id is None or source_id is None:
+            continue
+        source_title = item.get("source_title")
+        if not isinstance(source_title, str):
+            source_title = None
+        snippet = str(item.get("snippet") or "")
+        page_start = _coerce_optional_int(item.get("page_start"))
+        page_end = _coerce_optional_int(item.get("page_end"))
+        snippet_start = _coerce_optional_int(item.get("snippet_start"))
+        snippet_end = _coerce_optional_int(item.get("snippet_end"))
+        absolute_start = _coerce_optional_int(item.get("absolute_start"))
+        absolute_end = _coerce_optional_int(item.get("absolute_end"))
+        citations.append(
+            CitationOut(
+                chunk_id=chunk_id,
+                source_id=source_id,
+                source_title=source_title,
+                page_start=page_start,
+                page_end=page_end,
+                snippet=snippet,
+                snippet_start=snippet_start,
+                snippet_end=snippet_end,
+                absolute_start=absolute_start,
+                absolute_end=absolute_end,
+            )
+        )
+    return citations
 
 
 def _coerce_verdict(raw: Any) -> Verdict | None:
