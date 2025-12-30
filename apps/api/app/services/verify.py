@@ -157,6 +157,26 @@ def normalize_verification_summary_payload(raw: dict[str, Any]) -> dict[str, Any
     return normalized
 
 
+def normalize_verification_summary(
+    answer_text: str,
+    raw_claims: list[dict[str, Any]] | None,
+    raw_summary: dict[str, Any] | None,
+    citations_count: int | None,
+) -> VerificationSummaryOut:
+    if raw_summary is not None and not isinstance(raw_summary, dict):
+        raise ValueError("verification_summary must be a dict")
+    claims = _coerce_raw_claims(raw_claims)
+    count_citations = citations_count or 0
+    if claims:
+        summary = summarize_claims(claims, answer_text, count_citations)
+    else:
+        summary = _summary_from_raw(answer_text, raw_summary, count_citations)
+    summary.answer_style = _answer_style_from_answer(
+        answer_text, summary.overall_verdict
+    )
+    return summary
+
+
 def infer_answer_style(answer_text: str, summary: dict[str, Any]) -> AnswerStyle:
     if answer_text.strip().startswith(CONTRADICTION_PREFIX):
         return AnswerStyle.CONFLICT_REWRITTEN
@@ -173,6 +193,65 @@ def infer_answer_style(answer_text: str, summary: dict[str, Any]) -> AnswerStyle
     if summary.get("has_contradictions") is True:
         return AnswerStyle.CONFLICT_REWRITTEN
     return AnswerStyle.ORIGINAL
+
+
+def _answer_style_from_answer(
+    answer_text: str, overall_verdict: VerificationOverallVerdict
+) -> AnswerStyle:
+    if answer_text.strip().startswith(CONTRADICTION_PREFIX):
+        return AnswerStyle.CONFLICT_REWRITTEN
+    if overall_verdict == VerificationOverallVerdict.INSUFFICIENT_EVIDENCE:
+        return AnswerStyle.INSUFFICIENT_EVIDENCE
+    return AnswerStyle.ORIGINAL
+
+
+def _summary_from_raw(
+    answer_text: str,
+    raw_summary: dict[str, Any] | None,
+    citations_count: int,
+) -> VerificationSummaryOut:
+    if raw_summary:
+        supported_count = _coerce_int(raw_summary.get("supported_count"))
+        weak_support_count = _coerce_int(raw_summary.get("weak_support_count"))
+        unsupported_count = _coerce_int(raw_summary.get("unsupported_count"))
+        contradicted_count = _coerce_int(raw_summary.get("contradicted_count"))
+        conflicting_count = _coerce_int(raw_summary.get("conflicting_count"))
+    else:
+        supported_count = 0
+        weak_support_count = 0
+        unsupported_count = 0
+        contradicted_count = 0
+        conflicting_count = 0
+
+    has_contradictions = (contradicted_count + conflicting_count) > 0
+    total_claims = (
+        supported_count
+        + weak_support_count
+        + unsupported_count
+        + contradicted_count
+        + conflicting_count
+    )
+    all_unsupported = total_claims > 0 and unsupported_count == total_claims
+    insufficient_evidence = _is_insufficient_evidence_answer(answer_text) or (
+        citations_count == 0 and all_unsupported
+    )
+    if insufficient_evidence:
+        overall_verdict = VerificationOverallVerdict.INSUFFICIENT_EVIDENCE
+    elif has_contradictions:
+        overall_verdict = VerificationOverallVerdict.HAS_CONTRADICTIONS
+    else:
+        overall_verdict = VerificationOverallVerdict.OK
+
+    return VerificationSummaryOut(
+        supported_count=supported_count,
+        weak_support_count=weak_support_count,
+        unsupported_count=unsupported_count,
+        contradicted_count=contradicted_count,
+        conflicting_count=conflicting_count,
+        has_contradictions=has_contradictions,
+        overall_verdict=overall_verdict,
+        answer_style=AnswerStyle.ORIGINAL,
+    )
 
 
 def rewrite_verified_answer(
@@ -656,6 +735,16 @@ def _prioritize_ids(ids: list[str], preferred_ids: set[str]) -> list[str]:
     return preferred + others
 
 
+def _coerce_int(raw: Any) -> int:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    if value < 0:
+        return 0
+    return value
+
+
 def _coerce_score(raw: Any) -> float:
     try:
         score = float(raw)
@@ -666,6 +755,29 @@ def _coerce_score(raw: Any) -> float:
     if score > 1:
         return 1.0
     return score
+
+
+def _coerce_raw_claims(raw_claims: list[dict[str, Any]] | None) -> list[ClaimOut]:
+    if not isinstance(raw_claims, list):
+        return []
+    claims: list[ClaimOut] = []
+    for item in raw_claims:
+        if not isinstance(item, dict):
+            continue
+        verdict = _coerce_verdict(item.get("verdict")) or Verdict.UNSUPPORTED
+        claim_text = str(item.get("claim_text") or "")
+        support_score = _coerce_score(item.get("support_score"))
+        contradiction_score = _coerce_score(item.get("contradiction_score"))
+        claims.append(
+            ClaimOut(
+                claim_text=claim_text,
+                verdict=verdict,
+                support_score=support_score,
+                contradiction_score=contradiction_score,
+                evidence=[],
+            )
+        )
+    return claims
 
 
 def _coerce_verdict(raw: Any) -> Verdict | None:
