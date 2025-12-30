@@ -17,7 +17,7 @@ from apps.api.app.security import require_api_key
 from apps.api.app.services.rag import build_snippet, compute_absolute_offsets, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
 from apps.api.app.services.verify import (
-    apply_contradiction_prefix,
+    rewrite_verified_answer,
     summarize_claims,
     verify_answer,
 )
@@ -86,7 +86,9 @@ def query_verified(
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text = apply_contradiction_prefix(answer_text, verification_summary)
+    answer_text = rewrite_verified_answer(
+        payload.question, answer_text, claims, verification_summary
+    )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
 
     answer_row = Answer(
@@ -181,7 +183,9 @@ def query_verified_grouped(
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text = apply_contradiction_prefix(answer_text, verification_summary)
+    answer_text = rewrite_verified_answer(
+        payload.question, answer_text, claims, verification_summary
+    )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
 
     answer_row = Answer(

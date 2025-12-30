@@ -20,6 +20,33 @@ from packages.shared_db.settings import settings
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
+_QUESTION_STOPWORDS = {
+    "a",
+    "about",
+    "an",
+    "and",
+    "are",
+    "does",
+    "for",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "the",
+    "this",
+    "to",
+    "what",
+    "which",
+    "that",
+}
+_META_TOKENS = {
+    "conflict",
+    "conflicts",
+    "fixture",
+    "section",
+    "test",
+}
 _MAX_CLAIMS_FAKE = 5
 _MAX_SUPPORT_EVIDENCE = 2
 _MAX_CONTRADICT_EVIDENCE = 1
@@ -43,7 +70,7 @@ def verify_answer(
 
     preferred_ids = {str(cid) for cid in cited_ids}
     if settings.ai_provider.strip().lower() == "fake":
-        return _align_claims_fake(claim_texts, chunks, preferred_ids)
+        return _align_claims_fake(question, claim_texts, chunks, preferred_ids)
     return _align_claims_openai(question, claim_texts, chunks, preferred_ids)
 
 
@@ -96,6 +123,53 @@ def apply_contradiction_prefix(answer: str, summary: VerificationSummaryOut) -> 
     if summary.has_contradictions and not answer.startswith(CONTRADICTION_PREFIX):
         return f"{CONTRADICTION_PREFIX}{answer}"
     return answer
+
+
+def rewrite_verified_answer(
+    question: str,
+    answer: str,
+    claims: list[ClaimOut],
+    verification_summary: VerificationSummaryOut,
+) -> str:
+    if (
+        verification_summary.overall_verdict
+        == VerificationOverallVerdict.INSUFFICIENT_EVIDENCE
+    ):
+        return answer
+    if not verification_summary.has_contradictions:
+        return answer
+
+    supported = [
+        claim.claim_text
+        for claim in claims
+        if claim.verdict in {Verdict.SUPPORTED, Verdict.WEAK_SUPPORT}
+    ]
+    conflicted = [
+        claim.claim_text
+        for claim in claims
+        if claim.verdict in {Verdict.CONTRADICTED, Verdict.CONFLICTING}
+    ]
+    unsupported = [
+        claim.claim_text for claim in claims if claim.verdict == Verdict.UNSUPPORTED
+    ]
+
+    def format_section(title: str, items: list[str]) -> str:
+        lines = [title]
+        if items:
+            lines.extend(f"- {item}" for item in items)
+        else:
+            lines.append("- None.")
+        return "\n".join(lines)
+
+    sections = [
+        format_section("What the sources support", supported),
+        format_section("Where the sources conflict", conflicted),
+    ]
+    if unsupported:
+        sections.append(format_section("What's not supported", unsupported))
+
+    body = "\n\n".join(sections)
+    return f"{CONTRADICTION_PREFIX}{body}"
 
 
 def _extract_claims(question: str, answer: str) -> list[str]:
@@ -237,18 +311,62 @@ def _align_claims_openai(
 
 
 def _align_claims_fake(
+    question: str,
     claim_texts: list[str],
     chunks: list[RetrievedChunk],
     preferred_ids: set[str],
 ) -> list[ClaimOut]:
+    question_lower = question.casefold()
+    question_section = None
+    if "section a" in question_lower:
+        question_section = "a"
+    elif "section b" in question_lower:
+        question_section = "b"
+    question_tokens = _tokenize(question)
+    _, question_words = _split_numeric_tokens(question_tokens)
+    question_keywords = question_words - _QUESTION_STOPWORDS
+    if not question_keywords:
+        question_keywords = question_words
+    question_signal = question_keywords - _META_TOKENS
+
     chunk_lookup = {str(chunk.chunk_id): chunk for chunk in chunks}
     chunk_tokens = {
         chunk_id: _tokenize(chunk.text) for chunk_id, chunk in chunk_lookup.items()
     }
+    sentence_tokens: dict[str, list[tuple[set[str], set[str]]]] = {}
+    for chunk_id, chunk in chunk_lookup.items():
+        sentences = _SENTENCE_SPLIT_RE.split(chunk.text)
+        sentence_tokens[chunk_id] = []
+        for sentence in sentences:
+            tokens = _tokenize(sentence)
+            numbers, words = _split_numeric_tokens(tokens)
+            if tokens:
+                sentence_tokens[chunk_id].append((numbers, words))
+
     claims_out: list[ClaimOut] = []
     for claim_text in claim_texts:
         claim_tokens = _tokenize(claim_text)
         claim_numbers, claim_words = _split_numeric_tokens(claim_tokens)
+        claim_section = _get_section_token(claim_words)
+        if question_section and claim_section and claim_section != question_section:
+            claims_out.append(
+                ClaimOut(
+                    claim_text=claim_text,
+                    verdict=Verdict.UNSUPPORTED,
+                    support_score=0.0,
+                    contradiction_score=0.0,
+                    evidence=[],
+                )
+            )
+            continue
+        claim_keywords = claim_words - _QUESTION_STOPWORDS
+        if not claim_keywords:
+            claim_keywords = claim_words
+        claim_signal = claim_keywords - _META_TOKENS
+        relevance_score = (
+            _overlap_score(question_signal, claim_signal) if question_signal else 0.0
+        )
+        allow_contradictions = relevance_score >= 0.3
         best_id = None
         best_score = 0.0
         for chunk_id, tokens in chunk_tokens.items():
@@ -259,10 +377,37 @@ def _align_claims_fake(
         support_score = best_score
         contradiction_score = 0.0
         contradict_ids: list[str] = []
-        if claim_numbers and claim_words:
+        if allow_contradictions and claim_numbers and claim_words:
+            if best_id:
+                best_sentences = sentence_tokens.get(best_id, [])
+                best_sentence_idx = None
+                best_sentence_score = 0.0
+                for idx, (_, words) in enumerate(best_sentences):
+                    overlap = _overlap_score(claim_words, words)
+                    if overlap > best_sentence_score:
+                        best_sentence_score = overlap
+                        best_sentence_idx = idx
+                for idx, (numbers, words) in enumerate(best_sentences):
+                    if idx == best_sentence_idx:
+                        continue
+                    if not numbers or not numbers.isdisjoint(claim_numbers):
+                        continue
+                    if question_section and claim_section:
+                        sentence_section = _get_section_token(words)
+                        if sentence_section != claim_section:
+                            continue
+                    overlap = _overlap_score(claim_words, words)
+                    if overlap >= _FAKE_SUPPORT_THRESHOLD:
+                        contradict_ids.append(best_id)
+                        contradiction_score = max(contradiction_score, max(overlap, 0.6))
+                        break
             for chunk_id, tokens in chunk_tokens.items():
                 if chunk_id == best_id:
                     continue
+                if question_section and claim_section:
+                    chunk_section = _get_section_token(tokens)
+                    if chunk_section != claim_section:
+                        continue
                 chunk_numbers, chunk_words = _split_numeric_tokens(tokens)
                 if not chunk_numbers:
                     continue
@@ -317,12 +462,21 @@ def _split_numeric_tokens(tokens: set[str]) -> tuple[set[str], set[str]]:
     return numeric, non_numeric
 
 
+def _get_section_token(tokens: set[str]) -> str | None:
+    if "section" not in tokens:
+        return None
+    if "a" in tokens:
+        return "a"
+    if "b" in tokens:
+        return "b"
+    return None
+
+
 def _overlap_score(left: set[str], right: set[str]) -> float:
     if not left or not right:
         return 0.0
     overlap = len(left.intersection(right))
-    union = len(left.union(right))
-    return overlap / max(1, union)
+    return overlap / max(1, len(left))
 
 
 def _truncate_text(text: str, limit: int) -> str:

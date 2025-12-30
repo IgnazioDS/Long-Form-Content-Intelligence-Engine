@@ -234,6 +234,7 @@ Outputs are written to:
 - `/query/verified/grouped/highlights` combines highlights with grouped citations.
 - Verified responses include `verification_summary` with verdict counts and an `overall_verdict`.
   If contradictions are detected, answers are prefixed with: "Contradictions detected in the source material."
+  The body is rewritten into support/conflict/unsupported sections driven by claim verdicts.
 - Citation and evidence snippets include snippet_start/snippet_end offsets relative to full chunk text.
   When chunk char offsets are available, absolute_start/absolute_end provide offsets within the
   original source text; fields may be null if spans are unavailable.

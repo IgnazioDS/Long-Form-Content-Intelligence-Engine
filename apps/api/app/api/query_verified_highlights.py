@@ -18,7 +18,7 @@ from apps.api.app.services.highlights import add_highlights_to_claims
 from apps.api.app.services.rag import build_snippet, compute_absolute_offsets, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
 from apps.api.app.services.verify import (
-    apply_contradiction_prefix,
+    rewrite_verified_answer,
     summarize_claims,
     verify_answer,
 )
@@ -87,7 +87,9 @@ def query_verified_highlights(
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text = apply_contradiction_prefix(answer_text, verification_summary)
+    answer_text = rewrite_verified_answer(
+        payload.question, answer_text, claims, verification_summary
+    )
     highlighted_claims = add_highlights_to_claims(payload.question, claims, top_chunks)
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     raw_highlights = [claim.model_dump(mode="json") for claim in highlighted_claims]
@@ -188,7 +190,9 @@ def query_verified_grouped_highlights(
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text = apply_contradiction_prefix(answer_text, verification_summary)
+    answer_text = rewrite_verified_answer(
+        payload.question, answer_text, claims, verification_summary
+    )
     highlighted_claims = add_highlights_to_claims(payload.question, claims, top_chunks)
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     raw_highlights = [claim.model_dump(mode="json") for claim in highlighted_claims]
