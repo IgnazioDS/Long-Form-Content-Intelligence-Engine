@@ -127,6 +127,58 @@ def test_get_answer_highlights_uses_claims_highlights() -> None:
     assert evidence["highlight_text"] == "uses"
 
 
+def test_get_answer_highlights_filters_invalid_evidence() -> None:
+    chunk_id = uuid.uuid4()
+    raw_highlights = [
+        {
+            "claim_text": "The API uses port 8000.",
+            "verdict": Verdict.SUPPORTED.value,
+            "support_score": 0.9,
+            "contradiction_score": 0.0,
+            "evidence": [
+                {
+                    "chunk_id": str(chunk_id),
+                    "relation": EvidenceRelation.SUPPORTS.value,
+                    "snippet": "API uses port 8000.",
+                    "snippet_start": 0,
+                    "snippet_end": 20,
+                    "highlight_start": 4,
+                    "highlight_end": 8,
+                    "highlight_text": "uses",
+                },
+                {
+                    "chunk_id": "not-a-uuid",
+                    "relation": EvidenceRelation.SUPPORTS.value,
+                    "snippet": "Bad evidence.",
+                },
+            ],
+        }
+    ]
+    answer_row = _make_answer(
+        "Ok.",
+        raw_citations={
+            "ids": ["one"],
+            "claims_highlights": raw_highlights,
+        },
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}/highlights")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    evidence = payload["claims"][0]["evidence"]
+    assert len(evidence) == 1
+    assert evidence[0]["chunk_id"] == str(chunk_id)
+    assert evidence[0]["relation"] == EvidenceRelation.SUPPORTS.value
+
+
 def test_get_answer_highlights_falls_back_to_claims() -> None:
     answer_row = _make_answer(
         "Ok.",
@@ -243,6 +295,46 @@ def test_get_answer_highlights_only_highlights_derives_summary() -> None:
     payload = response.json()
     assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value
     assert payload["verification_summary"]["has_contradictions"] is True
+
+
+def test_get_answer_highlights_bad_summary_uses_highlights() -> None:
+    raw_highlights = [
+        {
+            "claim_text": "The API uses port 9000.",
+            "verdict": Verdict.CONTRADICTED.value,
+            "support_score": 0.0,
+            "contradiction_score": 0.9,
+            "evidence": [],
+        }
+    ]
+    answer_text = f"{CONTRADICTION_PREFIX}The API uses port 8000."
+    answer_row = _make_answer(
+        answer_text,
+        raw_citations={
+            "ids": ["one"],
+            "verification_summary": "bad",
+            "claims": "bad",
+            "claims_highlights": raw_highlights,
+        },
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}/highlights")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value
+    assert payload["answer_style"] == payload["verification_summary"]["answer_style"]
+    assert payload["verification_summary"]["has_contradictions"] is True
+    assert payload["verification_summary"]["overall_verdict"] == (
+        VerificationOverallVerdict.HAS_CONTRADICTIONS.value
+    )
 
 
 def test_get_answer_highlights_hydrates_citations() -> None:

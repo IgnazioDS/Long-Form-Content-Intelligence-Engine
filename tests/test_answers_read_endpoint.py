@@ -101,6 +101,27 @@ def test_get_answer_normalizes_missing_summary() -> None:
     )
 
 
+def test_get_answer_handles_bad_raw_citations() -> None:
+    answer_row = Answer(
+        query_id=uuid.uuid4(),
+        answer="Ok.",
+        raw_citations="not-a-dict",
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["answer_style"] == payload["verification_summary"]["answer_style"]
+
+
 def test_get_answer_repairs_missing_answer_style() -> None:
     raw_summary = {
         "supported_count": 0,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -45,10 +45,19 @@ def _get_test_session(session: FakeSession) -> Generator[FakeSession, None, None
         session.close()
 
 
+def _override_session(
+    session: FakeSession,
+) -> Callable[[], Generator[FakeSession, None, None]]:
+    def _override() -> Generator[FakeSession, None, None]:
+        yield from _get_test_session(session)
+
+    return _override
+
+
 def test_answers_requires_api_key(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "api_key", "secret")
     session = FakeSession()
-    app.dependency_overrides[get_session] = lambda: _get_test_session(session)
+    app.dependency_overrides[get_session] = _override_session(session)
 
     client = TestClient(app)
     try:
@@ -64,7 +73,7 @@ def test_answers_accepts_api_key(monkeypatch: MonkeyPatch) -> None:
     session = FakeSession()
     answer_row = Answer(query_id=uuid.uuid4(), answer="Ok.", raw_citations=None)
     session.add(answer_row)
-    app.dependency_overrides[get_session] = lambda: _get_test_session(session)
+    app.dependency_overrides[get_session] = _override_session(session)
 
     client = TestClient(app)
     try:

@@ -234,8 +234,8 @@ def select_summary_inputs(
     raw_highlights: Any,
     coerced_claims: list[ClaimOut],
 ) -> tuple[list[dict[str, Any]] | None, list[ClaimOut] | None]:
-    raw_claims_list = raw_claims if isinstance(raw_claims, list) else None
-    if raw_claims_list:
+    if coerced_claims:
+        raw_claims_list = raw_claims if isinstance(raw_claims, list) else None
         return raw_claims_list, coerced_claims
     raw_highlights_list = raw_highlights if isinstance(raw_highlights, list) else None
     if raw_highlights_list:
@@ -250,8 +250,8 @@ def normalize_verification_summary(
     citations_count: int | None,
     claims: list[ClaimOut] | None = None,
 ) -> VerificationSummaryOut:
-    if raw_summary is not None and not isinstance(raw_summary, dict):
-        raise ValueError("verification_summary must be a dict")
+    if not isinstance(raw_summary, dict):
+        raw_summary = None
     if claims is None:
         claims = _coerce_raw_claims(raw_claims)
     count_citations = (
