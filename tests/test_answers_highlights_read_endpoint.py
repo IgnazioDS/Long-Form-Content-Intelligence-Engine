@@ -174,3 +174,38 @@ def test_get_answer_highlights_missing_summary_derives() -> None:
     assert payload["verification_summary"]["overall_verdict"] == (
         VerificationOverallVerdict.HAS_CONTRADICTIONS.value
     )
+
+
+def test_get_answer_highlights_empty_claims_uses_highlights() -> None:
+    raw_highlights = [
+        {
+            "claim_text": "The API uses port 9000.",
+            "verdict": Verdict.CONTRADICTED.value,
+            "support_score": 0.0,
+            "contradiction_score": 0.9,
+            "evidence": [],
+        }
+    ]
+    answer_text = f"{CONTRADICTION_PREFIX}The API uses port 8000."
+    answer_row = _make_answer(
+        answer_text,
+        raw_citations={
+            "ids": ["one"],
+            "claims": [],
+            "claims_highlights": raw_highlights,
+        },
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}/highlights")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value
+    assert payload["verification_summary"]["has_contradictions"] is True
