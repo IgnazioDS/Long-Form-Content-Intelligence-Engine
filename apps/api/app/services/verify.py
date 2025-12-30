@@ -157,6 +157,24 @@ def normalize_verification_summary_payload(raw: dict[str, Any]) -> dict[str, Any
     return normalized
 
 
+def infer_answer_style(answer_text: str, summary: dict[str, Any]) -> AnswerStyle:
+    if answer_text.strip().startswith(CONTRADICTION_PREFIX):
+        return AnswerStyle.CONFLICT_REWRITTEN
+
+    verdict = summary.get("overall_verdict")
+    if isinstance(verdict, VerificationOverallVerdict):
+        verdict_value = verdict.value
+    elif verdict is None:
+        verdict_value = ""
+    else:
+        verdict_value = str(verdict).strip().upper()
+    if verdict_value == VerificationOverallVerdict.INSUFFICIENT_EVIDENCE.value:
+        return AnswerStyle.INSUFFICIENT_EVIDENCE
+    if summary.get("has_contradictions") is True:
+        return AnswerStyle.CONFLICT_REWRITTEN
+    return AnswerStyle.ORIGINAL
+
+
 def rewrite_verified_answer(
     question: str,
     answer: str,
