@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from apps.api.app.schemas import AnswerStyle, ClaimOut, Verdict
+from apps.api.app.schemas import AnswerStyle, CitationOut, ClaimOut, Verdict
 from apps.api.app.services.verify import (
     CONTRADICTION_PREFIX,
+    build_verified_response,
     rewrite_verified_answer,
     summarize_claims,
 )
@@ -140,3 +141,37 @@ def test_rewrite_verified_answer_no_double_prefix() -> None:
     assert rewritten.startswith(CONTRADICTION_PREFIX)
     assert rewritten.count(CONTRADICTION_PREFIX) == 1
     assert style == AnswerStyle.CONFLICT_REWRITTEN
+
+
+def test_build_verified_response_overrides_summary_style() -> None:
+    claims = [
+        ClaimOut(
+            claim_text="Alpha is enabled.",
+            verdict=Verdict.SUPPORTED,
+            support_score=0.9,
+            contradiction_score=0.0,
+            evidence=[],
+        ),
+        ClaimOut(
+            claim_text="Port is 8000.",
+            verdict=Verdict.CONTRADICTED,
+            support_score=0.0,
+            contradiction_score=0.8,
+            evidence=[],
+        ),
+    ]
+    summary = summarize_claims(claims, "Original answer.", citations_count=1)
+    summary.answer_style = AnswerStyle.ORIGINAL
+    citations: list[CitationOut] = []
+
+    rewritten, style, updated_summary = build_verified_response(
+        question="Question",
+        answer_text="Original answer.",
+        claims=claims,
+        citations=citations,
+        verification_summary=summary,
+    )
+
+    assert rewritten.startswith(CONTRADICTION_PREFIX)
+    assert style == AnswerStyle.CONFLICT_REWRITTEN
+    assert updated_summary.answer_style == AnswerStyle.CONFLICT_REWRITTEN

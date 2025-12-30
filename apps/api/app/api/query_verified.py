@@ -17,7 +17,7 @@ from apps.api.app.security import require_api_key
 from apps.api.app.services.rag import build_snippet, compute_absolute_offsets, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
 from apps.api.app.services.verify import (
-    rewrite_verified_answer,
+    build_verified_response,
     summarize_claims,
     verify_answer,
 )
@@ -86,8 +86,12 @@ def query_verified(
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text, answer_style = rewrite_verified_answer(
-        payload.question, answer_text, claims, verification_summary
+    answer_text, answer_style, verification_summary = build_verified_response(
+        question=payload.question,
+        answer_text=answer_text,
+        claims=claims,
+        citations=citations,
+        verification_summary=verification_summary,
     )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     summary_payload = verification_summary.model_dump(mode="json")
@@ -183,10 +187,16 @@ def query_verified_grouped(
             )
         )
 
+    citation_groups = build_citation_groups(citations)
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text, answer_style = rewrite_verified_answer(
-        payload.question, answer_text, claims, verification_summary
+    answer_text, answer_style, verification_summary = build_verified_response(
+        question=payload.question,
+        answer_text=answer_text,
+        claims=claims,
+        citations=citations,
+        verification_summary=verification_summary,
+        citation_groups=citation_groups,
     )
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     summary_payload = verification_summary.model_dump(mode="json")
@@ -213,7 +223,6 @@ def query_verified_grouped(
         },
     )
 
-    citation_groups = build_citation_groups(citations)
     return QueryVerifiedGroupedResponse(
         answer=answer_text,
         answer_style=answer_style,

@@ -18,7 +18,7 @@ from apps.api.app.services.highlights import add_highlights_to_claims
 from apps.api.app.services.rag import build_snippet, compute_absolute_offsets, generate_answer
 from apps.api.app.services.retrieval import retrieve_candidates
 from apps.api.app.services.verify import (
-    rewrite_verified_answer,
+    build_verified_response,
     summarize_claims,
     verify_answer,
 )
@@ -87,8 +87,12 @@ def query_verified_highlights(
 
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text, answer_style = rewrite_verified_answer(
-        payload.question, answer_text, claims, verification_summary
+    answer_text, answer_style, verification_summary = build_verified_response(
+        question=payload.question,
+        answer_text=answer_text,
+        claims=claims,
+        citations=citations,
+        verification_summary=verification_summary,
     )
     highlighted_claims = add_highlights_to_claims(payload.question, claims, top_chunks)
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
@@ -190,10 +194,16 @@ def query_verified_grouped_highlights(
             )
         )
 
+    citation_groups = build_citation_groups(citations)
     claims = verify_answer(payload.question, answer_text, top_chunks, cited_ids)
     verification_summary = summarize_claims(claims, answer_text, len(citations))
-    answer_text, answer_style = rewrite_verified_answer(
-        payload.question, answer_text, claims, verification_summary
+    answer_text, answer_style, verification_summary = build_verified_response(
+        question=payload.question,
+        answer_text=answer_text,
+        claims=claims,
+        citations=citations,
+        verification_summary=verification_summary,
+        citation_groups=citation_groups,
     )
     highlighted_claims = add_highlights_to_claims(payload.question, claims, top_chunks)
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
@@ -223,7 +233,6 @@ def query_verified_grouped_highlights(
         },
     )
 
-    citation_groups = build_citation_groups(citations)
     return QueryVerifiedGroupedHighlightsResponse(
         answer=answer_text,
         answer_style=answer_style,

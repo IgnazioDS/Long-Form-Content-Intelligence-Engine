@@ -7,6 +7,9 @@ from uuid import UUID
 
 from apps.api.app.schemas import (
     AnswerStyle,
+    CitationGroupOut,
+    CitationOut,
+    ClaimHighlightOut,
     ClaimOut,
     EvidenceOut,
     EvidenceRelation,
@@ -209,6 +212,23 @@ def rewrite_verified_answer(
     body = "\n\n".join(sections)
     verification_summary.answer_style = AnswerStyle.CONFLICT_REWRITTEN
     return f"{CONTRADICTION_PREFIX}{body}", AnswerStyle.CONFLICT_REWRITTEN
+
+
+def build_verified_response(
+    *,
+    question: str,
+    answer_text: str,
+    claims: list[ClaimOut],
+    citations: list[CitationOut],
+    verification_summary: VerificationSummaryOut,
+    citation_groups: list[CitationGroupOut] | None = None,
+    highlighted_claims: list[ClaimHighlightOut] | None = None,
+) -> tuple[str, AnswerStyle, VerificationSummaryOut]:
+    rewritten_answer, answer_style = rewrite_verified_answer(
+        question, answer_text, claims, verification_summary
+    )
+    verification_summary.answer_style = answer_style
+    return rewritten_answer, answer_style, verification_summary
 
 
 def _extract_claims(question: str, answer: str) -> list[str]:
