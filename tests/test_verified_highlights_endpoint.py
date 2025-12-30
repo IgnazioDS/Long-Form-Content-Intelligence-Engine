@@ -186,6 +186,7 @@ def test_query_verified_highlights_response_shape(monkeypatch: MonkeyPatch) -> N
     assert summary["has_contradictions"] is False
     assert not payload["answer"].startswith(CONTRADICTION_PREFIX)
     assert payload["answer_style"] == AnswerStyle.ORIGINAL.value
+    assert payload["answer_style"] == summary["answer_style"]
 
 
 def test_query_verified_grouped_highlights_contradiction_prefix(
@@ -251,3 +252,4 @@ def test_query_verified_grouped_highlights_contradiction_prefix(
     assert payload["answer"].startswith(CONTRADICTION_PREFIX)
     assert isinstance(payload.get("citation_groups"), list)
     assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value
+    assert payload["answer_style"] == summary["answer_style"]

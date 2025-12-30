@@ -140,6 +140,7 @@ class VerificationSummaryOut(BaseModel):
     conflicting_count: int
     has_contradictions: bool
     overall_verdict: VerificationOverallVerdict
+    answer_style: AnswerStyle | None = None
     model_config = ConfigDict(from_attributes=True)
 
 

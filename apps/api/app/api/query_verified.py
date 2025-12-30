@@ -92,6 +92,9 @@ def query_verified(
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     summary_payload = verification_summary.model_dump(mode="json")
     summary_payload["answer_style"] = answer_style.value
+    response_summary = verification_summary.model_copy(
+        update={"answer_style": answer_style}
+    )
 
     answer_row = Answer(
         query_id=query_row.id,
@@ -120,7 +123,7 @@ def query_verified(
         answer_style=answer_style,
         citations=citations,
         claims=claims,
-        verification_summary=verification_summary,
+        verification_summary=response_summary,
     )
 
 
@@ -192,6 +195,9 @@ def query_verified_grouped(
     raw_claims = [claim.model_dump(mode="json") for claim in claims]
     summary_payload = verification_summary.model_dump(mode="json")
     summary_payload["answer_style"] = answer_style.value
+    response_summary = verification_summary.model_copy(
+        update={"answer_style": answer_style}
+    )
 
     answer_row = Answer(
         query_id=query_row.id,
@@ -222,5 +228,5 @@ def query_verified_grouped(
         citations=citations,
         claims=claims,
         citation_groups=citation_groups,
-        verification_summary=verification_summary,
+        verification_summary=response_summary,
     )

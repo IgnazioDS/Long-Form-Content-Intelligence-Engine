@@ -95,6 +95,9 @@ def query_verified_highlights(
     raw_highlights = [claim.model_dump(mode="json") for claim in highlighted_claims]
     summary_payload = verification_summary.model_dump(mode="json")
     summary_payload["answer_style"] = answer_style.value
+    response_summary = verification_summary.model_copy(
+        update={"answer_style": answer_style}
+    )
 
     answer_row = Answer(
         query_id=query_row.id,
@@ -124,7 +127,7 @@ def query_verified_highlights(
         answer_style=answer_style,
         citations=citations,
         claims=highlighted_claims,
-        verification_summary=verification_summary,
+        verification_summary=response_summary,
     )
 
 
@@ -201,6 +204,9 @@ def query_verified_grouped_highlights(
     raw_highlights = [claim.model_dump(mode="json") for claim in highlighted_claims]
     summary_payload = verification_summary.model_dump(mode="json")
     summary_payload["answer_style"] = answer_style.value
+    response_summary = verification_summary.model_copy(
+        update={"answer_style": answer_style}
+    )
 
     answer_row = Answer(
         query_id=query_row.id,
@@ -232,5 +238,5 @@ def query_verified_grouped_highlights(
         citations=citations,
         claims=highlighted_claims,
         citation_groups=citation_groups,
-        verification_summary=verification_summary,
+        verification_summary=response_summary,
     )

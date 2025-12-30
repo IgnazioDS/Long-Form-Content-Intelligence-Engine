@@ -104,6 +104,7 @@ def test_query_verified_returns_claims(monkeypatch: MonkeyPatch) -> None:
     assert isinstance(payload["claims"], list)
     assert isinstance(payload["verification_summary"], dict)
     assert payload["answer_style"] == AnswerStyle.ORIGINAL.value
+    assert payload["answer_style"] == payload["verification_summary"]["answer_style"]
 
     allowed_ids = {str(chunk.chunk_id) for chunk in chunks}
     for citation in payload["citations"]:
@@ -171,6 +172,7 @@ def test_query_verified_contradiction_prefix(monkeypatch: MonkeyPatch) -> None:
     assert payload["answer"].startswith(CONTRADICTION_PREFIX)
     assert "The system uses port 8000." in payload["answer"]
     assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value
+    assert payload["answer_style"] == summary["answer_style"]
 
 
 def test_query_verified_grouped_contradiction_prefix(monkeypatch: MonkeyPatch) -> None:
@@ -232,6 +234,7 @@ def test_query_verified_grouped_contradiction_prefix(monkeypatch: MonkeyPatch) -
     assert payload["answer"].startswith(CONTRADICTION_PREFIX)
     assert isinstance(payload.get("citation_groups"), list)
     assert payload["answer_style"] == AnswerStyle.CONFLICT_REWRITTEN.value
+    assert payload["answer_style"] == summary["answer_style"]
 
 
 def test_query_verified_insufficient_evidence_answer_style(monkeypatch: MonkeyPatch) -> None:
@@ -278,3 +281,4 @@ def test_query_verified_insufficient_evidence_answer_style(monkeypatch: MonkeyPa
     assert response.status_code == 200
     payload = response.json()
     assert payload["answer_style"] == AnswerStyle.INSUFFICIENT_EVIDENCE.value
+    assert payload["answer_style"] == payload["verification_summary"]["answer_style"]
