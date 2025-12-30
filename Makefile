@@ -1,4 +1,4 @@
-.PHONY: up down test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-evidence-integrity install-dev check
+.PHONY: up down test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-openai-verified-smoke eval-evidence-integrity install-dev check
 
 up:
 	docker compose up --build
@@ -10,7 +10,7 @@ test:
 	pytest
 
 lint:
-	ruff check .
+	python3 -m ruff check .
 	mypy .
 
 install-dev:
@@ -38,6 +38,9 @@ eval-multisource:
 
 eval-openai-smoke:
 	python3 tests/eval/run_eval_openai_smoke.py
+
+eval-openai-verified-smoke:
+	python3 tests/eval/run_eval_openai_verified_smoke.py
 
 eval-evidence-integrity:
 	python3 tests/eval/run_eval_evidence_integrity.py

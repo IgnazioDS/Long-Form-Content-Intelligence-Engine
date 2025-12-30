@@ -172,7 +172,17 @@ Eval runners also respect:
    AI_PROVIDER=openai DEBUG=true OPENAI_API_KEY=... docker compose up --build -d
    make eval-openai-smoke
    ```
-7. Run the evidence integrity harness:
+7. Run the OpenAI verified smoke harness:
+   ```bash
+   make eval-openai-verified-smoke
+   ```
+   Requires `AI_PROVIDER=openai`, `DEBUG=true`, and `OPENAI_API_KEY` (exported or set in `.env`).
+   Example:
+   ```bash
+   AI_PROVIDER=openai DEBUG=true OPENAI_API_KEY=... docker compose up --build -d
+   make eval-openai-verified-smoke
+   ```
+8. Run the evidence integrity harness:
    ```bash
    make eval-evidence-integrity
    ```
@@ -208,6 +218,10 @@ The OpenAI highlights smoke dataset uses `tests/eval/golden_openai_smoke.json` a
 chunk text (OpenAI spans are validated against the truncated prefix but slices are
 checked against the full chunk text).
 
+The OpenAI verified smoke dataset uses `tests/eval/golden_openai_verified_smoke.json` and
+`scripts/fixtures/sample.pdf` to validate verification_summary and answer_style invariants
+for `/query/verified` and `/query/verified/highlights` (no exact answer matching).
+
 Outputs are written to:
 - `scripts/eval/out/eval_results.json`
 - `scripts/eval/out/eval_report.md`
@@ -217,6 +231,8 @@ Outputs are written to:
 - `scripts/eval/out/eval_multisource_report.md`
 - `tests/eval/out/eval_openai_smoke_results.json`
 - `tests/eval/out/eval_openai_smoke_report.md`
+- `tests/eval/out/eval_openai_verified_smoke_results.json`
+- `tests/eval/out/eval_openai_verified_smoke_report.md`
 - `tests/eval/out/eval_evidence_integrity_results.json`
 - `tests/eval/out/eval_evidence_integrity_report.md`
 
