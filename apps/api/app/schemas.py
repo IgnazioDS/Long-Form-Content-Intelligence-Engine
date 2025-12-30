@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic.config import ConfigDict
 
 
@@ -143,6 +143,14 @@ class VerificationSummaryOut(BaseModel):
     answer_style: AnswerStyle | None = None
     model_config = ConfigDict(from_attributes=True)
 
+    @model_validator(mode="after")
+    def _validate_answer_style(self) -> "VerificationSummaryOut":
+        if self.answer_style is None:
+            return self
+        if not isinstance(self.answer_style, AnswerStyle):
+            raise ValueError("answer_style must be AnswerStyle or None")
+        return self
+
 
 class QueryVerifiedResponse(BaseModel):
     answer: str
@@ -151,6 +159,15 @@ class QueryVerifiedResponse(BaseModel):
     claims: list[ClaimOut]
     verification_summary: VerificationSummaryOut
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def _validate_answer_style(self) -> "QueryVerifiedResponse":
+        summary_style = self.verification_summary.answer_style
+        if summary_style is None:
+            raise ValueError("verification_summary.answer_style is required")
+        if summary_style != self.answer_style:
+            raise ValueError("verification_summary.answer_style must match answer_style")
+        return self
 
 
 class QueryVerifiedGroupedResponse(BaseModel):
@@ -162,6 +179,15 @@ class QueryVerifiedGroupedResponse(BaseModel):
     verification_summary: VerificationSummaryOut
     model_config = ConfigDict(from_attributes=True)
 
+    @model_validator(mode="after")
+    def _validate_answer_style(self) -> "QueryVerifiedGroupedResponse":
+        summary_style = self.verification_summary.answer_style
+        if summary_style is None:
+            raise ValueError("verification_summary.answer_style is required")
+        if summary_style != self.answer_style:
+            raise ValueError("verification_summary.answer_style must match answer_style")
+        return self
+
 
 class QueryVerifiedHighlightsResponse(BaseModel):
     answer: str
@@ -170,6 +196,15 @@ class QueryVerifiedHighlightsResponse(BaseModel):
     claims: list[ClaimHighlightOut]
     verification_summary: VerificationSummaryOut
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def _validate_answer_style(self) -> "QueryVerifiedHighlightsResponse":
+        summary_style = self.verification_summary.answer_style
+        if summary_style is None:
+            raise ValueError("verification_summary.answer_style is required")
+        if summary_style != self.answer_style:
+            raise ValueError("verification_summary.answer_style must match answer_style")
+        return self
 
 
 class QueryVerifiedGroupedHighlightsResponse(BaseModel):
@@ -180,3 +215,12 @@ class QueryVerifiedGroupedHighlightsResponse(BaseModel):
     citation_groups: list[CitationGroupOut]
     verification_summary: VerificationSummaryOut
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def _validate_answer_style(self) -> "QueryVerifiedGroupedHighlightsResponse":
+        summary_style = self.verification_summary.answer_style
+        if summary_style is None:
+            raise ValueError("verification_summary.answer_style is required")
+        if summary_style != self.answer_style:
+            raise ValueError("verification_summary.answer_style must match answer_style")
+        return self

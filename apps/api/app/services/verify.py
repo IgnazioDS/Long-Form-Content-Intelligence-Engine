@@ -126,6 +126,8 @@ def rewrite_verified_answer(
     claims: list[ClaimOut],
     verification_summary: VerificationSummaryOut,
 ) -> tuple[str, AnswerStyle]:
+    if verification_summary.answer_style is None:
+        verification_summary.answer_style = AnswerStyle.ORIGINAL
     clean_answer = answer
     if clean_answer.startswith(CONTRADICTION_PREFIX):
         clean_answer = clean_answer[len(CONTRADICTION_PREFIX) :].lstrip()
@@ -133,8 +135,10 @@ def rewrite_verified_answer(
         verification_summary.overall_verdict
         == VerificationOverallVerdict.INSUFFICIENT_EVIDENCE
     ):
+        verification_summary.answer_style = AnswerStyle.INSUFFICIENT_EVIDENCE
         return clean_answer, AnswerStyle.INSUFFICIENT_EVIDENCE
     if not verification_summary.has_contradictions:
+        verification_summary.answer_style = AnswerStyle.ORIGINAL
         return clean_answer, AnswerStyle.ORIGINAL
 
     supported = [
@@ -167,9 +171,11 @@ def rewrite_verified_answer(
         sections.append(format_section("What's not supported", unsupported))
 
     if not supported and not conflicted and not unsupported:
+        verification_summary.answer_style = AnswerStyle.ORIGINAL
         return clean_answer, AnswerStyle.ORIGINAL
 
     body = "\n\n".join(sections)
+    verification_summary.answer_style = AnswerStyle.CONFLICT_REWRITTEN
     return f"{CONTRADICTION_PREFIX}{body}", AnswerStyle.CONFLICT_REWRITTEN
 
 

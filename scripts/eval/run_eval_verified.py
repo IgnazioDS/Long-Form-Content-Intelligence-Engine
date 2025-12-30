@@ -345,6 +345,15 @@ def evaluate_case(
         summary_payload = None
     if summary_payload is None:
         failures.append("missing_verification_summary")
+    summary_answer_style = None
+    if summary_payload:
+        raw_style = summary_payload.get("answer_style")
+        if isinstance(raw_style, str) and raw_style.strip():
+            summary_answer_style = raw_style.strip().upper()
+        else:
+            failures.append("missing_summary_answer_style")
+    if summary_answer_style and summary_answer_style != answer_style:
+        failures.append("answer_style_mismatch")
 
     if expected == "ANSWERABLE":
         if not answer:
