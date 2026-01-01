@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -29,9 +31,31 @@ class Settings(BaseSettings):
     max_pdf_bytes: int = Field(25_000_000, alias="MAX_PDF_BYTES")
     max_pdf_pages: int = Field(300, alias="MAX_PDF_PAGES")
     api_key: str = Field("", alias="API_KEY")
+    require_api_key: bool = Field(False, alias="REQUIRE_API_KEY")
+    rate_limit_backend: str = Field("memory", alias="RATE_LIMIT_BACKEND")
     rate_limit_rps: float = Field(0.0, alias="RATE_LIMIT_RPS")
     rate_limit_burst: int = Field(0, alias="RATE_LIMIT_BURST")
     log_level: str = Field("INFO", alias="LOG_LEVEL")
 
 
 settings = Settings()  # type: ignore[call-arg]
+
+
+def _parse_worker_count(raw: str | None) -> int | None:
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    if value <= 0:
+        return None
+    return value
+
+
+def detect_max_workers() -> int:
+    for env_var in ("WEB_CONCURRENCY", "UVICORN_WORKERS"):
+        value = _parse_worker_count(os.getenv(env_var))
+        if value is not None:
+            return value
+    return 1

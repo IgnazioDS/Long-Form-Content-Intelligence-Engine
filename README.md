@@ -18,7 +18,7 @@
 - `OPENAI_MODEL` (default: `gpt-4o-mini`)
 - `OPENAI_EMBED_MODEL` (default: `text-embedding-3-small`)
 - `AI_PROVIDER` (`openai` or `fake`, default: `openai`)
-- `DEBUG` (default: `false`)
+- `DEBUG` (default: `false`; keep `false` in production)
 - `DATABASE_URL`
 - `REDIS_URL`
 - `MAX_CHUNKS_PER_QUERY` (default: `8`)
@@ -30,15 +30,28 @@
 
 ## Optional Environment Variables
 
-- `API_KEY` (if set, send `X-API-Key` on requests)
-- `RATE_LIMIT_RPS` (default: `0`, disabled when `0`)
-- `RATE_LIMIT_BURST` (default: `0`)
+- `API_KEY` (if set, send `X-API-Key` on requests; required in production if `REQUIRE_API_KEY=true`)
+- `REQUIRE_API_KEY` (default: `false`; set `true` in production to require `API_KEY` at startup)
+- `RATE_LIMIT_BACKEND` (`memory` or `external`, default: `memory`; use `external` in production)
+- `RATE_LIMIT_RPS` (default: `0`, disabled when `0`; use only with `RATE_LIMIT_BACKEND=memory`)
+- `RATE_LIMIT_BURST` (default: `0`; use only with `RATE_LIMIT_BACKEND=memory`)
 - `MMR_ENABLED` (default: `true`)
 - `MMR_LAMBDA` (default: `0.7`)
 - `MMR_CANDIDATES` (default: `30`)
 - `MAX_PDF_BYTES` (default: `25000000`)
 - `MAX_PDF_PAGES` (default: `300`)
 - `LOG_LEVEL` (default: `INFO`)
+
+Production rate limiting: set `RATE_LIMIT_BACKEND=external` and enforce limits at your
+gateway/ingress (nginx, Cloudflare, ALB, etc). The in-app limiter is in-memory and
+intended for dev or single-worker use only.
+
+## Production Checklist
+
+- `REQUIRE_API_KEY=true`
+- `API_KEY` set to a non-empty value
+- `DEBUG=false` (debug routes not mounted)
+- `RATE_LIMIT_BACKEND=external` and gateway/ingress rate limiting configured
 
 ## How to Run Locally
 
@@ -47,6 +60,10 @@ make up
 ```
 
 The API will be available at `http://localhost:8000`.
+For production, set `REQUIRE_API_KEY=true` and define a non-empty `API_KEY`.
+
+Debug endpoints under `/debug/*` are only mounted when `DEBUG=true` and are excluded from
+OpenAPI when `DEBUG=false` (recommended for production).
 
 ## Host Setup (Required for make test/make lint)
 

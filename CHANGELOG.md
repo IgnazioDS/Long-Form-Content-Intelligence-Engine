@@ -4,6 +4,9 @@
 
 ### Included
 - Persisted answer read endpoints + legacy-tolerant hydration + contract tests + consistency logging.
+- Added REQUIRE_API_KEY startup enforcement to prevent running without an API key in production.
+- Hardened debug routes to mount only when `DEBUG=true` and hide them from OpenAPI otherwise.
+- Added rate limit backend guardrails to prevent unsafe in-memory limiting in production or multi-worker modes.
 
 ## v0.1.0-mvp
 

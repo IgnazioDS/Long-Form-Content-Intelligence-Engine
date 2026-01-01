@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Callable, Generator
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 
@@ -83,5 +84,24 @@ def test_answers_accepts_api_key(monkeypatch: MonkeyPatch) -> None:
         )
     finally:
         app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+
+
+def test_startup_fails_without_required_api_key(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "require_api_key", True)
+    monkeypatch.setattr(settings, "api_key", "")
+
+    with pytest.raises(RuntimeError, match="REQUIRE_API_KEY=true"):
+        with TestClient(app):
+            pass
+
+
+def test_startup_succeeds_with_required_api_key(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "require_api_key", True)
+    monkeypatch.setattr(settings, "api_key", "secret")
+
+    with TestClient(app) as client:
+        response = client.get("/health")
 
     assert response.status_code == 200
