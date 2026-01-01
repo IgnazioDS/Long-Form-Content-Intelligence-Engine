@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Literal, TypedDict, overload
 
 from apps.api.app.schemas import (
@@ -11,6 +12,7 @@ from apps.api.app.schemas import (
     VerificationSummaryOut,
 )
 from apps.api.app.services.verify import (
+    assert_verification_consistency,
     coerce_citation_groups_payload,
     coerce_citations_payload,
     coerce_claims_payload,
@@ -19,7 +21,10 @@ from apps.api.app.services.verify import (
     normalize_verification_summary,
     select_summary_inputs,
 )
+from packages.shared_db.logging import request_id_var
 from packages.shared_db.models import Answer
+
+logger = logging.getLogger(__name__)
 
 
 class _HydratedBase(TypedDict):
@@ -28,6 +33,8 @@ class _HydratedBase(TypedDict):
     citation_groups: list[CitationGroupOut]
     verification_summary: VerificationSummaryOut
     answer_style: AnswerStyle
+    citations_count: int
+    consistency_claims: list[ClaimOut]
 
 
 class HydratedAnswerPayload(_HydratedBase):
@@ -36,6 +43,49 @@ class HydratedAnswerPayload(_HydratedBase):
 
 class HydratedHighlightPayload(_HydratedBase):
     claims: list[ClaimHighlightOut]
+
+
+def _claims_for_consistency(claims: list[ClaimHighlightOut]) -> list[ClaimOut]:
+    return [
+        ClaimOut(
+            claim_text=claim.claim_text,
+            verdict=claim.verdict,
+            support_score=claim.support_score,
+            contradiction_score=claim.contradiction_score,
+            evidence=[],
+        )
+        for claim in claims
+    ]
+
+
+def log_verification_inconsistency(
+    *,
+    answer_id: str,
+    path: str,
+    answer_text: str,
+    claims: list[ClaimOut],
+    verification_summary: VerificationSummaryOut,
+    citations_count: int,
+) -> None:
+    try:
+        assert_verification_consistency(
+            answer_text,
+            claims,
+            verification_summary,
+            citations_count=citations_count,
+        )
+    except (AssertionError, ValueError) as exc:
+        request_id = request_id_var.get()
+        logger.warning(
+            "verification_summary_inconsistent",
+            extra={
+                "event": "verification_summary_inconsistent",
+                "answer_id": answer_id,
+                "request_id": request_id,
+                "path": path,
+                "reason": str(exc),
+            },
+        )
 
 
 @overload
@@ -97,6 +147,8 @@ def hydrate_answer_payload(
             "claims": highlight_claims_out,
             "verification_summary": verification_summary,
             "answer_style": answer_style,
+            "citations_count": citations_count,
+            "consistency_claims": _claims_for_consistency(highlight_claims_out),
         }
 
     claims_out = coerce_claims_payload(raw_claims)
@@ -119,4 +171,6 @@ def hydrate_answer_payload(
         "claims": claims_out,
         "verification_summary": verification_summary,
         "answer_style": answer_style,
+        "citations_count": citations_count,
+        "consistency_claims": claims_out,
     }

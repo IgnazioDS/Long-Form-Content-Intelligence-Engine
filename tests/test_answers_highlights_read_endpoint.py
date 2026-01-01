@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Callable, Generator
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.app.deps import get_session
@@ -366,3 +368,44 @@ def test_get_answer_highlights_hydrates_citations() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["citations"]) == 1
+
+
+def test_get_answer_highlights_logs_inconsistent_summary(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    raw_claims = [_raw_claim(Verdict.SUPPORTED)]
+    raw_highlights = [
+        {
+            "claim_text": "The API uses port 9000.",
+            "verdict": Verdict.CONTRADICTED.value,
+            "support_score": 0.0,
+            "contradiction_score": 0.9,
+            "evidence": [],
+        }
+    ]
+    answer_row = _make_answer(
+        "Ok.",
+        raw_citations={
+            "ids": ["one"],
+            "claims": raw_claims,
+            "claims_highlights": raw_highlights,
+        },
+    )
+    session = FakeSession()
+    session.add(answer_row)
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    caplog.set_level(logging.WARNING)
+    client = TestClient(app)
+    try:
+        response = client.get(f"/answers/{answer_row.id}/highlights")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["answer_style"] == payload["verification_summary"]["answer_style"]
+    assert any(
+        record.message == "verification_summary_inconsistent"
+        for record in caplog.records
+    )
