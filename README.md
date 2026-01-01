@@ -25,8 +25,7 @@
    - `RATE_LIMIT_BACKEND=external` (enforce limits at your ingress)
 3. Build and start the production stack:
    ```bash
-   make build-prod
-   make up-prod
+   make build-prod && make up-prod
    ```
 
 Recommended: terminate TLS and enforce rate limiting at your gateway/ingress (nginx, ALB,

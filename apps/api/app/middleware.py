@@ -7,8 +7,8 @@ import uuid
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 
+import opentelemetry.trace as trace
 from fastapi import Request
-from opentelemetry import trace
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
