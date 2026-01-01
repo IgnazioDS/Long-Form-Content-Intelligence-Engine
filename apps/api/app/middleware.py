@@ -8,6 +8,7 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request
+from opentelemetry import trace
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
@@ -53,6 +54,9 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        span = trace.get_current_span()
+        if span and span.is_recording():
+            span.set_attribute("request_id", request_id)
         token = request_id_var.set(request_id)
         start = time.perf_counter()
         try:

@@ -41,6 +41,11 @@
 - `MAX_PDF_BYTES` (default: `25000000`)
 - `MAX_PDF_PAGES` (default: `300`)
 - `LOG_LEVEL` (default: `INFO`)
+- `METRICS_ENABLED` (default: `true`)
+- `METRICS_PATH` (default: `/metrics`)
+- `OTEL_ENABLED` (default: `false`)
+- `OTEL_SERVICE_NAME` (default: `long-form-content-intelligence-api`)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` (default: unset; uses OpenTelemetry defaults)
 
 Production rate limiting: set `RATE_LIMIT_BACKEND=external` and enforce limits at your
 gateway/ingress (nginx, Cloudflare, ALB, etc). The in-app limiter is in-memory and
@@ -64,6 +69,23 @@ For production, set `REQUIRE_API_KEY=true` and define a non-empty `API_KEY`.
 
 Debug endpoints under `/debug/*` are only mounted when `DEBUG=true` and are excluded from
 OpenAPI when `DEBUG=false` (recommended for production).
+
+## Observability
+
+Metrics are exposed via Prometheus text format on `METRICS_PATH` when `METRICS_ENABLED=true`.
+Route labels use FastAPI route templates to avoid high-cardinality raw paths.
+
+Example:
+```bash
+curl http://localhost:8000/metrics
+```
+
+Tracing is disabled by default. To enable OpenTelemetry exporting:
+```bash
+OTEL_ENABLED=true \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces \
+make up
+```
 
 ## Host Setup (Required for make test/make lint)
 

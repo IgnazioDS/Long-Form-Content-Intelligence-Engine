@@ -23,6 +23,7 @@ from apps.api.app.services.verify import (
 )
 from packages.shared_db.logging import request_id_var
 from packages.shared_db.models import Answer
+from packages.shared_db.observability.metrics import record_verification_summary_inconsistent
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,16 @@ def log_verification_inconsistency(
     verification_summary: VerificationSummaryOut,
     citations_count: int,
 ) -> None:
+    def _reason_code(message: str) -> str:
+        if ":" in message:
+            message = message.split(":", 1)[1].strip()
+        if not message:
+            return "unknown"
+        reason = message.split(";", 1)[0].strip()
+        if "(" in reason:
+            reason = reason.split("(", 1)[0].strip()
+        return reason or "unknown"
+
     try:
         assert_verification_consistency(
             answer_text,
@@ -76,6 +87,7 @@ def log_verification_inconsistency(
         )
     except (AssertionError, ValueError) as exc:
         request_id = request_id_var.get()
+        record_verification_summary_inconsistent()
         logger.warning(
             "verification_summary_inconsistent",
             extra={
@@ -84,6 +96,7 @@ def log_verification_inconsistency(
                 "request_id": request_id,
                 "path": path,
                 "reason": str(exc),
+                "reason_code": _reason_code(str(exc)),
             },
         )
 

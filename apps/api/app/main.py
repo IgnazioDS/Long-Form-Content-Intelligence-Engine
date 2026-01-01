@@ -11,11 +11,17 @@ from apps.api.app.api import (
     query_verified_highlights,
     sources,
 )
+from apps.api.app.api import (
+    metrics as metrics_api,
+)
 from apps.api.app.middleware import RateLimitMiddleware, RequestContextMiddleware
+from apps.api.app.observability.http_metrics_middleware import HttpMetricsMiddleware
+from apps.api.app.observability.tracing import init_tracing_if_enabled
 from packages.shared_db.logging import configure_logging
 from packages.shared_db.settings import detect_max_workers, settings
 
 configure_logging("api", settings.log_level, force=True)
+
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Long-Form Content Intelligence Engine")
@@ -39,6 +45,8 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
     if settings.rate_limit_backend == "memory" and settings.rate_limit_rps > 0:
         app.add_middleware(RateLimitMiddleware)
+    if settings.metrics_enabled:
+        app.add_middleware(HttpMetricsMiddleware)
 
     app.include_router(health.router)
     app.include_router(sources.router)
@@ -49,9 +57,12 @@ def create_app() -> FastAPI:
     app.include_router(answers_highlights.router)
     app.include_router(answers_grouped.router)
 
+    if settings.metrics_enabled:
+        app.include_router(metrics_api.get_metrics_router())
     if settings.debug:
         app.include_router(debug.router)
 
+    init_tracing_if_enabled(app)
     return app
 
 

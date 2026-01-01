@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     rate_limit_rps: float = Field(0.0, alias="RATE_LIMIT_RPS")
     rate_limit_burst: int = Field(0, alias="RATE_LIMIT_BURST")
     log_level: str = Field("INFO", alias="LOG_LEVEL")
+    metrics_enabled: bool = Field(True, alias="METRICS_ENABLED")
+    metrics_path: str = Field("/metrics", alias="METRICS_PATH")
+    otel_enabled: bool = Field(False, alias="OTEL_ENABLED")
+    otel_service_name: str = Field(
+        "long-form-content-intelligence-api", alias="OTEL_SERVICE_NAME"
+    )
+    otel_exporter_otlp_endpoint: str | None = Field(
+        None, alias="OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
 
 
 settings = Settings()  # type: ignore[call-arg]

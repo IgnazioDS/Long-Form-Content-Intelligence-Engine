@@ -4,12 +4,18 @@ import hashlib
 import json
 import random
 import re
+import time
 from collections.abc import Iterable
 from typing import Any, cast
 
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
+from packages.shared_db.observability.metrics import (
+    record_llm_chat_error,
+    record_llm_chat_request,
+    record_llm_chat_tokens,
+)
 from packages.shared_db.settings import settings
 
 _client: OpenAI | None = None
@@ -116,6 +122,30 @@ def _fake_chat(messages: list[dict[str, str]]) -> str:
     return json.dumps(payload)
 
 
+def _model_label(provider: str) -> str:
+    if provider == "openai":
+        return settings.openai_model
+    if provider == "fake":
+        return "fake"
+    return provider or "unknown"
+
+
+def _extract_usage_tokens(usage: Any) -> tuple[int | None, int | None, int | None]:
+    if usage is None:
+        return None, None, None
+    if isinstance(usage, dict):
+        return (
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+            usage.get("total_tokens"),
+        )
+    return (
+        getattr(usage, "prompt_tokens", None),
+        getattr(usage, "completion_tokens", None),
+        getattr(usage, "total_tokens", None),
+    )
+
+
 @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(3))
 def embed_texts(texts: Iterable[str]) -> list[list[float]]:
     provider = _provider()
@@ -134,15 +164,39 @@ def chat(
     temperature: float = 0,
 ) -> str:
     provider = _provider()
-    if provider == "fake":
-        return _fake_chat(messages)
-    if provider != "openai":
-        raise ValueError(f"Unsupported AI_PROVIDER: {provider}")
-    client = get_client()
-    response = client.chat.completions.create(
-        model=settings.openai_model,
-        messages=cast(Any, messages),
-        temperature=temperature,
-        response_format=cast(Any, response_format),
-    )
-    return response.choices[0].message.content or ""
+    model = _model_label(provider)
+    start = time.perf_counter()
+    try:
+        if provider == "fake":
+            content = _fake_chat(messages)
+            duration = time.perf_counter() - start
+            record_llm_chat_request(provider, model, "ok", duration)
+            return content
+        if provider != "openai":
+            raise ValueError(f"Unsupported AI_PROVIDER: {provider}")
+        client = get_client()
+        response = client.chat.completions.create(
+            model=settings.openai_model,
+            messages=cast(Any, messages),
+            temperature=temperature,
+            response_format=cast(Any, response_format),
+        )
+        content = response.choices[0].message.content or ""
+        duration = time.perf_counter() - start
+        record_llm_chat_request(provider, model, "ok", duration)
+        prompt_tokens, completion_tokens, total_tokens = _extract_usage_tokens(
+            getattr(response, "usage", None)
+        )
+        record_llm_chat_tokens(
+            provider,
+            model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+        return content
+    except Exception as exc:
+        duration = time.perf_counter() - start
+        record_llm_chat_request(provider, model, "error", duration)
+        record_llm_chat_error(provider, model, type(exc).__name__)
+        raise
