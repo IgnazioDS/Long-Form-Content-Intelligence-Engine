@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Included
+- Persisted answer read endpoints + legacy-tolerant hydration + contract tests + consistency logging.
+
 ## v0.1.0-mvp
 
 ### Included

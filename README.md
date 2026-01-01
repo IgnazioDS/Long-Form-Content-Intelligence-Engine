@@ -114,6 +114,10 @@ Persisted-answer read endpoints (API key required if `API_KEY` is set):
 Legacy-tolerant hydration:
 - Missing `verification_summary`/`answer_style` is derived and normalized to satisfy strict contracts.
 - Summary counts and `answer_style` are repaired to stay consistent with claims/verdicts.
+- `raw_citations` may be missing or malformed (non-dict) and is treated as `{}`.
+- `citations_count` uses `len(raw_citations["ids"])` if it is a list; otherwise falls back to `len(citations)`.
+- Summary input selection prefers raw claims only if coerced claims are non-empty; otherwise uses raw highlights if list.
+- Non-fatal consistency logging emits `verification_summary_inconsistent` when repaired payloads still mismatch.
 Citations behavior:
 - If `raw_citations.citations` or `raw_citations.citation_groups` are persisted, they are returned.
 - If only legacy ids exist, citations may be empty; normalization still uses ids length as `citations_count`.
