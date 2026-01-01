@@ -12,6 +12,39 @@
    make up
    ```
 
+## Production (Docker)
+
+1. Copy the environment template and fill in values:
+   ```bash
+   cp .env.example .env
+   ```
+2. Set production flags in `.env`:
+   - `REQUIRE_API_KEY=true`
+   - `API_KEY=...`
+   - `DEBUG=false` (debug router is not mounted)
+   - `RATE_LIMIT_BACKEND=external` (enforce limits at your ingress)
+3. Build and start the production stack:
+   ```bash
+   make build-prod
+   make up-prod
+   ```
+
+Recommended: terminate TLS and enforce rate limiting at your gateway/ingress (nginx, ALB,
+Cloudflare, etc). Configure metrics and tracing explicitly with `METRICS_*` and `OTEL_*`
+flags when deploying to production.
+
+Notes:
+- The production image uses a wheel-based install but dependencies are not pinned; for fully
+  deterministic builds, add a constraints/lock file (pip-tools, uv, poetry) and update the
+  Docker build to install with it.
+- `docker-compose.prod.yml` runs `alembic upgrade head` in the API command (safe for a
+  single replica). For multi-replica deployments, run a one-off migration job instead:
+  ```bash
+  make migrate-prod
+  ```
+- Postgres/Redis ports are not published in production compose. For local debugging, add
+  `ports:` entries or create an override file.
+
 ## Required Environment Variables
 
 - `OPENAI_API_KEY`

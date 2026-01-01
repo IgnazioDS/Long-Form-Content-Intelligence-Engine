@@ -1,0 +1,53 @@
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends build-essential \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY . /app
+
+RUN python -m pip install --upgrade pip \
+  && python -m pip wheel --no-cache-dir --wheel-dir /wheels . \
+  && python -m pip wheel --no-cache-dir --no-deps --wheel-dir /wheels/app . \
+  && cp /wheels/app/*.whl /wheels/app.whl
+
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+ARG APP_UID=1000
+ARG APP_GID=1000
+
+RUN groupadd -g ${APP_GID} app \
+  && useradd -u ${APP_UID} -g ${APP_GID} -m app
+
+COPY --from=builder /wheels /wheels
+
+RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
+    /wheels/app.whl \
+  && rm -rf /wheels
+
+COPY migrations /app/migrations
+COPY alembic.ini /app/alembic.ini
+
+RUN mkdir -p /app/storage \
+  && chown -R app:app /app
+
+USER app
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()"
+
+CMD ["sh", "-c", "uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-${WEB_CONCURRENCY:-2}}"]
