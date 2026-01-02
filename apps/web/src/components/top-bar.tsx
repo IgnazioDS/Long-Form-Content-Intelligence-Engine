@@ -11,7 +11,7 @@ type HealthStatus = "loading" | "ok" | "error";
 
 export function TopBar() {
   const [status, setStatus] = useState<HealthStatus>("loading");
-  const { baseUrl } = useSyncExternalStore(
+  const { baseUrl, guardMessage } = useSyncExternalStore(
     subscribeToApiConfig,
     getApiConfigSnapshot,
     getApiConfigSnapshot
@@ -19,6 +19,13 @@ export function TopBar() {
 
   useEffect(() => {
     let isMounted = true;
+
+    if (guardMessage) {
+      setStatus("error");
+      return () => {
+        isMounted = false;
+      };
+    }
 
     const checkHealth = async () => {
       try {
@@ -40,7 +47,7 @@ export function TopBar() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [baseUrl]);
+  }, [baseUrl, guardMessage]);
 
   return (
     <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border/70 bg-white/70 px-6 py-4 backdrop-blur">
@@ -49,6 +56,9 @@ export function TopBar() {
           Long-Form Content Intelligence Engine
         </p>
         <p className="text-xs text-muted-foreground">API: {baseUrl}</p>
+        {guardMessage && (
+          <p className="mt-1 text-xs font-medium text-amber-700">{guardMessage}</p>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <Badge

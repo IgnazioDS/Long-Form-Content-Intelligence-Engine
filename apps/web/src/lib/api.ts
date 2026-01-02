@@ -10,6 +10,7 @@ import type {
 export const DEFAULT_API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const DEFAULT_API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+const LOCALHOST_BASE_URL = "http://localhost:8000";
 
 const STORAGE_KEYS = {
   baseUrl: "lfcie_api_base_url",
@@ -19,12 +20,14 @@ const STORAGE_KEYS = {
 type ApiConfigSnapshot = {
   baseUrl: string;
   apiKey: string | null;
+  guardMessage: string | null;
 };
 
 type ApiFetchOptions = {
   method?: string;
   body?: BodyInit | Record<string, unknown> | null;
   headers?: Record<string, string>;
+  timeoutMs?: number;
 };
 
 let runtimeApiBaseUrl: string | null = null;
@@ -107,11 +110,32 @@ function resolveApiKey() {
   return trimmed ? trimmed : null;
 }
 
+function isLocalHostname(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+export function getApiConfigGuardMessage(baseUrl = resolveApiBaseUrl()) {
+  const normalized = normalizeBaseUrl(baseUrl);
+  if (normalized !== LOCALHOST_BASE_URL) {
+    return null;
+  }
+  if (!isBrowser()) {
+    return null;
+  }
+  const isProductionBuild = process.env.NODE_ENV === "production";
+  const isNonLocalHost = !isLocalHostname(window.location.hostname);
+  if (!isProductionBuild && !isNonLocalHost) {
+    return null;
+  }
+  return "API base URL is still set to http://localhost:8000. Update Settings before making requests.";
+}
+
 export function getApiConfigSnapshot(): ApiConfigSnapshot {
   const baseUrl = resolveApiBaseUrl();
   return {
     baseUrl,
     apiKey: resolveApiKey(),
+    guardMessage: getApiConfigGuardMessage(baseUrl),
   };
 }
 
@@ -201,8 +225,19 @@ export function getErrorMessage(error: unknown) {
   return "Request failed";
 }
 
+function isAbortError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  return "name" in error && (error as { name?: string }).name === "AbortError";
+}
+
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}) {
-  const { method = "GET", body, headers } = options;
+  const { method = "GET", body, headers, timeoutMs = 60000 } = options;
+  const guardMessage = getApiConfigGuardMessage();
+  if (guardMessage) {
+    throw { message: guardMessage };
+  }
   const baseUrl = resolveApiBaseUrl();
   const init: RequestInit = { method, headers: { ...headers } };
   const apiKey = resolveApiKey();
@@ -224,7 +259,21 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}) {
     };
   }
 
-  const response = await fetch(buildUrl(path, baseUrl), init);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  init.signal = controller.signal;
+
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, baseUrl), init);
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw { message: "Request timed out" };
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (response.status === 204) {
     return null as T;
