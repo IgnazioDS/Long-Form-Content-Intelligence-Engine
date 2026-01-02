@@ -32,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="light" style={{ colorScheme: "light" }} suppressHydrationWarning>
       <body
         className={cn(
           spaceGrotesk.variable,
