@@ -3,6 +3,7 @@
 .idea
 .vscode
 .venv
+.venv_pdf
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -12,6 +13,13 @@ dist/
 build/
 *.egg-info/
 node_modules/
+.next/
+.turbo/
+.vercel/
+apps/web/.next/
+apps/web/.turbo/
+apps/web/.vercel/
+apps/web/out/
 .env
 .env.*
 scripts/eval/out/
