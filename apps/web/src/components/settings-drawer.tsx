@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -35,14 +35,15 @@ export function SettingsDrawer() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) {
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
       return;
     }
     setBaseUrl(config.baseUrl);
     setApiKey(config.apiKey ?? "");
     setError(null);
-  }, [open, config.baseUrl, config.apiKey]);
+  };
 
   const handleSave = () => {
     const validation = validateApiBaseUrl(baseUrl);
@@ -65,7 +66,7 @@ export function SettingsDrawer() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           Settings

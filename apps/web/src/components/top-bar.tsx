@@ -16,12 +16,12 @@ export function TopBar() {
     getApiConfigSnapshot,
     getApiConfigSnapshot
   );
+  const displayStatus: HealthStatus = guardMessage ? "error" : status;
 
   useEffect(() => {
     let isMounted = true;
 
     if (guardMessage) {
-      setStatus("error");
       return () => {
         isMounted = false;
       };
@@ -29,6 +29,9 @@ export function TopBar() {
 
     const checkHealth = async () => {
       try {
+        if (isMounted) {
+          setStatus("loading");
+        }
         await getHealth();
         if (isMounted) {
           setStatus("ok");
@@ -64,14 +67,14 @@ export function TopBar() {
         <Badge
           className={cn(
             "border px-3 py-1 text-xs font-semibold uppercase tracking-wide",
-            status === "ok" && "border-emerald-200 bg-emerald-50 text-emerald-700",
-            status === "error" && "border-rose-200 bg-rose-50 text-rose-700",
-            status === "loading" && "border-amber-200 bg-amber-50 text-amber-700"
+            displayStatus === "ok" && "border-emerald-200 bg-emerald-50 text-emerald-700",
+            displayStatus === "error" && "border-rose-200 bg-rose-50 text-rose-700",
+            displayStatus === "loading" && "border-amber-200 bg-amber-50 text-amber-700"
           )}
         >
-          {status === "ok" && "API Online"}
-          {status === "error" && "API Offline"}
-          {status === "loading" && "Checking API"}
+          {displayStatus === "ok" && "API Online"}
+          {displayStatus === "error" && "API Offline"}
+          {displayStatus === "loading" && "Checking API"}
         </Badge>
         <SettingsDrawer />
       </div>
