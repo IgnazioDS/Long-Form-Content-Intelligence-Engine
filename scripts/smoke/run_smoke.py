@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -21,8 +22,20 @@ def main() -> None:
     base_url = get_base_url()
 
     with httpx.Client(timeout=30.0) as client:
-        health = client.get(f"{base_url}/health")
-        health.raise_for_status()
+        health_url = f"{base_url}/health"
+        for attempt in range(1, 31):
+            try:
+                health = client.get(health_url)
+                health.raise_for_status()
+                break
+            except httpx.HTTPError:
+                if attempt == 30:
+                    raise RuntimeError(
+                        f"API failed to become healthy at {health_url}. "
+                        "Ensure the API is running (e.g., "
+                        "`AI_PROVIDER=fake DEBUG=true docker compose up --build`)."
+                    ) from None
+                time.sleep(2)
 
         payload = upload_source(client, base_url, pdf_path, title="Smoke Test Fixture")
         source_id = payload["id"]

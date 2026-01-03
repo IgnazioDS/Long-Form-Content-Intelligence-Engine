@@ -7,24 +7,165 @@ import type {
   SourceListResponse,
 } from "@/lib/types";
 
-const RAW_BASE_URL =
+export const DEFAULT_API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const DEFAULT_API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+const LOCALHOST_BASE_URL = "http://localhost:8000";
 
-export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");
+const STORAGE_KEYS = {
+  baseUrl: "lfcie_api_base_url",
+  apiKey: "lfcie_api_key",
+};
 
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
+type ApiConfigSnapshot = {
+  baseUrl: string;
+  apiKey: string | null;
+  guardMessage: string | null;
+};
 
 type ApiFetchOptions = {
   method?: string;
   body?: BodyInit | Record<string, unknown> | null;
   headers?: Record<string, string>;
+  timeoutMs?: number;
 };
 
-function buildUrl(path: string) {
-  if (!path.startsWith("/")) {
-    return `${API_BASE_URL}/${path}`;
+let runtimeApiBaseUrl: string | null = null;
+let runtimeApiKey: string | null = null;
+const configListeners = new Set<() => void>();
+
+function notifyConfigListeners() {
+  configListeners.forEach((listener) => listener());
+}
+
+export function subscribeToApiConfig(listener: () => void) {
+  configListeners.add(listener);
+  return () => {
+    configListeners.delete(listener);
+  };
+}
+
+function isBrowser() {
+  return typeof window !== "undefined";
+}
+
+function readStorage(key: string) {
+  if (!isBrowser()) {
+    return null;
   }
-  return `${API_BASE_URL}${path}`;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string | null) {
+  if (!isBrowser()) {
+    return;
+  }
+  try {
+    if (!value) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, value);
+    }
+  } catch {
+    // Ignore storage failures (private mode, etc.).
+  }
+}
+
+function normalizeBaseUrl(value: string) {
+  return value.trim().replace(/\/+$/, "");
+}
+
+export function validateApiBaseUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { valid: false, message: "Base URL is required." };
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return { valid: false, message: "Base URL must use http or https." };
+    }
+    return { valid: true, normalized: normalizeBaseUrl(parsed.toString()) };
+  } catch {
+    return { valid: false, message: "Base URL must be a valid http(s) URL." };
+  }
+}
+
+function resolveApiBaseUrl() {
+  const fromRuntime = runtimeApiBaseUrl;
+  const fromStorage = readStorage(STORAGE_KEYS.baseUrl);
+  const resolved = fromRuntime || fromStorage || DEFAULT_API_BASE_URL;
+  return normalizeBaseUrl(resolved);
+}
+
+function resolveApiKey() {
+  const fromRuntime = runtimeApiKey;
+  const fromStorage = readStorage(STORAGE_KEYS.apiKey);
+  const resolved = fromRuntime ?? fromStorage ?? DEFAULT_API_KEY;
+  const trimmed = resolved.trim();
+  return trimmed ? trimmed : null;
+}
+
+function isLocalHostname(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+export function getApiConfigGuardMessage(baseUrl = resolveApiBaseUrl()) {
+  const normalized = normalizeBaseUrl(baseUrl);
+  if (normalized !== LOCALHOST_BASE_URL) {
+    return null;
+  }
+  if (!isBrowser()) {
+    return null;
+  }
+  const isProductionBuild = process.env.NODE_ENV === "production";
+  const isNonLocalHost = !isLocalHostname(window.location.hostname);
+  if (!isProductionBuild && !isNonLocalHost) {
+    return null;
+  }
+  return "API base URL is still set to http://localhost:8000. Update Settings before making requests.";
+}
+
+export function getApiConfigSnapshot(): ApiConfigSnapshot {
+  const baseUrl = resolveApiBaseUrl();
+  return {
+    baseUrl,
+    apiKey: resolveApiKey(),
+    guardMessage: getApiConfigGuardMessage(baseUrl),
+  };
+}
+
+export function setApiConfig(config: { baseUrl?: string | null; apiKey?: string | null }) {
+  if (config.baseUrl !== undefined) {
+    const normalized = config.baseUrl ? normalizeBaseUrl(config.baseUrl) : "";
+    runtimeApiBaseUrl = normalized ? normalized : null;
+    writeStorage(STORAGE_KEYS.baseUrl, runtimeApiBaseUrl);
+  }
+  if (config.apiKey !== undefined) {
+    const trimmed = config.apiKey ? config.apiKey.trim() : "";
+    runtimeApiKey = trimmed ? trimmed : null;
+    writeStorage(STORAGE_KEYS.apiKey, runtimeApiKey);
+  }
+  notifyConfigListeners();
+}
+
+export function resetApiConfig() {
+  runtimeApiBaseUrl = null;
+  runtimeApiKey = null;
+  writeStorage(STORAGE_KEYS.baseUrl, null);
+  writeStorage(STORAGE_KEYS.apiKey, null);
+  notifyConfigListeners();
+}
+
+function buildUrl(path: string, baseUrl: string) {
+  if (!path.startsWith("/")) {
+    return `${baseUrl}/${path}`;
+  }
+  return `${baseUrl}${path}`;
 }
 
 function normalizeError(status: number, payload: unknown): ApiError {
@@ -84,14 +225,27 @@ export function getErrorMessage(error: unknown) {
   return "Request failed";
 }
 
-export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}) {
-  const { method = "GET", body, headers } = options;
-  const init: RequestInit = { method, headers: { ...headers } };
+function isAbortError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  return "name" in error && (error as { name?: string }).name === "AbortError";
+}
 
-  if (API_KEY) {
+export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}) {
+  const { method = "GET", body, headers, timeoutMs = 60000 } = options;
+  const guardMessage = getApiConfigGuardMessage();
+  if (guardMessage) {
+    throw { message: guardMessage };
+  }
+  const baseUrl = resolveApiBaseUrl();
+  const init: RequestInit = { method, headers: { ...headers } };
+  const apiKey = resolveApiKey();
+
+  if (apiKey) {
     init.headers = {
       ...init.headers,
-      "X-API-Key": API_KEY,
+      "X-API-Key": apiKey,
     };
   }
 
@@ -105,7 +259,21 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}) {
     };
   }
 
-  const response = await fetch(buildUrl(path), init);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  init.signal = controller.signal;
+
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, baseUrl), init);
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw { message: "Request timed out" };
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (response.status === 204) {
     return null as T;
