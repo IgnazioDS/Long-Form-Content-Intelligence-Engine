@@ -60,6 +60,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      disable: true
     volumes:
       - storage_data:/app/storage
     command: celery -A services.ingest.worker.celery_app worker --loglevel=info

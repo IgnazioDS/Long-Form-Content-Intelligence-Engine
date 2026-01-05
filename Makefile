@@ -25,11 +25,10 @@ migrate-prod:
 
 smoke-prod:
 	@set -e; \
-	trap 'docker compose -f docker-compose.prod.yml down -v' EXIT; \
 	AI_PROVIDER=fake DEBUG=false REQUIRE_API_KEY=false RATE_LIMIT_BACKEND=external docker compose -f docker-compose.prod.yml up -d --build; \
 	echo "Waiting for http://localhost:8000/health"; \
 	for i in $$(seq 1 60); do \
-		if curl -fsS http://localhost:8000/health >/dev/null; then \
+		if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then \
 			break; \
 		fi; \
 		sleep 2; \
@@ -38,8 +37,19 @@ smoke-prod:
 			exit 1; \
 		fi; \
 	done; \
-	curl -fsS http://localhost:8000/health >/dev/null; \
-	curl -fsS http://localhost:8000/openapi.json >/dev/null
+	echo "Waiting for http://localhost:8000/openapi.json"; \
+	for i in $$(seq 1 30); do \
+		if curl -fsS http://localhost:8000/openapi.json >/dev/null 2>&1; then \
+			break; \
+		fi; \
+		sleep 2; \
+		if [ $$i -eq 30 ]; then \
+			echo "OpenAPI failed to become available"; \
+			exit 1; \
+		fi; \
+	done; \
+	echo "Smoke-prod passed"; \
+	echo "Run 'make down-prod' to stop the prod stack"
 
 ci-build-prod:
 	docker build -f Dockerfile.prod .
