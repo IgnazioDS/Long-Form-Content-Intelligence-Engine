@@ -1,4 +1,4 @@
-.PHONY: up down build-prod up-prod down-prod logs-prod migrate-prod smoke-prod ci-build-prod test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-openai-verified-smoke eval-openai-verified-contradictions-smoke eval-evidence-integrity install-dev check
+.PHONY: up down build-prod up-prod down-prod down-prod-volumes logs-prod migrate-prod smoke-prod ci-build-prod test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-openai-verified-smoke eval-openai-verified-contradictions-smoke eval-evidence-integrity install-dev check
 
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
@@ -9,12 +9,15 @@ down:
 	docker compose down -v
 
 build-prod:
-	docker compose -f docker-compose.prod.yml build
+	DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml build
 
 up-prod:
-	docker compose -f docker-compose.prod.yml up -d --build
+	DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml up -d --build
 
 down-prod:
+	docker compose -f docker-compose.prod.yml down
+
+down-prod-volumes:
 	docker compose -f docker-compose.prod.yml down -v
 
 logs-prod:
@@ -25,7 +28,7 @@ migrate-prod:
 
 smoke-prod:
 	@set -e; \
-	AI_PROVIDER=fake DEBUG=false REQUIRE_API_KEY=false RATE_LIMIT_BACKEND=external docker compose -f docker-compose.prod.yml up -d --build; \
+	DOCKER_BUILDKIT=1 AI_PROVIDER=fake DEBUG=false REQUIRE_API_KEY=false RATE_LIMIT_BACKEND=external docker compose -f docker-compose.prod.yml up -d --build; \
 	echo "Waiting for http://localhost:8000/health"; \
 	for i in $$(seq 1 60); do \
 		if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then \
@@ -52,7 +55,7 @@ smoke-prod:
 	echo "Run 'make down-prod' to stop the prod stack"
 
 ci-build-prod:
-	docker build -f Dockerfile.prod .
+	DOCKER_BUILDKIT=1 docker build -f Dockerfile.prod .
 
 test:
 	$(PYTHON) -m pytest

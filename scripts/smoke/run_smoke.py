@@ -48,8 +48,25 @@ def main() -> None:
 
         wait_for_source(client, base_url, source_id)
 
-        chunk_ids = get_debug_chunk_ids(client, base_url, source_id)
-        if not chunk_ids:
+        debug_checks_enabled = True
+        try:
+            chunk_ids = get_debug_chunk_ids(client, base_url, source_id)
+        except RuntimeError as exc:
+            if "DEBUG=true is required" not in str(exc):
+                raise
+            if _ensure_debug_endpoints(base_url):
+                chunk_ids = get_debug_chunk_ids(client, base_url, source_id)
+            elif _skip_debug_checks():
+                debug_checks_enabled = False
+                chunk_ids = []
+                print("Skipping debug chunk validation; DEBUG endpoints are unavailable.")
+            else:
+                raise RuntimeError(
+                    "DEBUG endpoints are unavailable. Restart the API with DEBUG=true "
+                    "or set SMOKE_SKIP_DEBUG=1 to skip chunk validation."
+                ) from None
+
+        if debug_checks_enabled and not chunk_ids:
             raise RuntimeError("No chunks found for source")
 
         query_payload = {"question": "What is this document about?", "source_ids": [source_id]}
@@ -61,9 +78,10 @@ def main() -> None:
         if not citations:
             raise RuntimeError("Query returned no citations")
         for citation in citations:
-            chunk_id = citation.get("chunk_id")
-            if chunk_id not in chunk_ids:
-                raise RuntimeError(f"Citation chunk_id not found: {chunk_id}")
+            if debug_checks_enabled:
+                chunk_id = citation.get("chunk_id")
+                if chunk_id not in chunk_ids:
+                    raise RuntimeError(f"Citation chunk_id not found: {chunk_id}")
             if citation.get("source_id") != source_id:
                 raise RuntimeError("Citation source_id does not match request")
 
@@ -106,6 +124,30 @@ def _is_local_base_url(base_url: str) -> bool:
     parsed = urlparse(base_url)
     host = parsed.hostname
     return host in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+
+
+def _ensure_debug_endpoints(base_url: str) -> bool:
+    if not _is_local_base_url(base_url):
+        return False
+    if os.getenv("SMOKE_AUTO_START", "1").strip().lower() not in {"1", "true", "yes"}:
+        return False
+    print("DEBUG endpoints unavailable; restarting local stack with DEBUG=true...")
+    try:
+        subprocess.run(
+            ["docker", "compose", "up", "--build", "-d"],
+            check=True,
+            env={**os.environ, "DEBUG": "true"},
+        )
+        return True
+    except FileNotFoundError:
+        print("docker compose not found; restart the stack manually.")
+    except subprocess.CalledProcessError as exc:
+        print(f"docker compose up failed (exit {exc.returncode}); restart manually.")
+    return False
+
+
+def _skip_debug_checks() -> bool:
+    return os.getenv("SMOKE_SKIP_DEBUG", "").strip().lower() in {"1", "true", "yes"}
 
 
 if __name__ == "__main__":
