@@ -25,6 +25,8 @@ def main() -> None:
     base_url = get_base_url()
     attempts = int(os.getenv("SMOKE_HEALTH_ATTEMPTS", "30"))
     sleep_s = float(os.getenv("SMOKE_HEALTH_SLEEP_S", "2"))
+    debug_attempts = int(os.getenv("SMOKE_DEBUG_ATTEMPTS", "10"))
+    debug_sleep_s = float(os.getenv("SMOKE_DEBUG_SLEEP_S", "1"))
 
     with httpx.Client(timeout=30.0) as client:
         health_url = f"{base_url}/health"
@@ -50,12 +52,16 @@ def main() -> None:
 
         debug_checks_enabled = True
         try:
-            chunk_ids = get_debug_chunk_ids(client, base_url, source_id)
+            chunk_ids = _get_debug_chunk_ids_with_retry(
+                client, base_url, source_id, debug_attempts, debug_sleep_s
+            )
         except RuntimeError as exc:
             if "DEBUG=true is required" not in str(exc):
                 raise
             if _ensure_debug_endpoints(base_url):
-                chunk_ids = get_debug_chunk_ids(client, base_url, source_id)
+                chunk_ids = _get_debug_chunk_ids_with_retry(
+                    client, base_url, source_id, debug_attempts, debug_sleep_s
+                )
             elif _skip_debug_checks():
                 debug_checks_enabled = False
                 chunk_ids = []
@@ -101,6 +107,23 @@ def _wait_for_health(
                 return False
             time.sleep(sleep_s)
     return False
+
+
+def _get_debug_chunk_ids_with_retry(
+    client: httpx.Client,
+    base_url: str,
+    source_id: str,
+    attempts: int,
+    sleep_s: float,
+) -> list[str]:
+    for attempt in range(1, attempts + 1):
+        try:
+            return get_debug_chunk_ids(client, base_url, source_id)
+        except httpx.HTTPError:
+            if attempt == attempts:
+                raise
+            time.sleep(sleep_s)
+    return []
 
 
 def _start_stack_if_needed(base_url: str) -> bool:
