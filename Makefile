@@ -1,4 +1,4 @@
-.PHONY: up down build-prod up-prod down-prod down-prod-volumes logs-prod migrate-prod smoke-prod ci-build-prod test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-openai-verified-smoke eval-openai-verified-contradictions-smoke eval-evidence-integrity install-dev check
+.PHONY: up down build-prod up-prod down-prod down-prod-volumes logs-prod migrate-prod smoke-prod ci-build-prod test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-openai-verified-smoke eval-openai-verified-contradictions-smoke eval-evidence-integrity install-dev check doctor
 
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
@@ -71,6 +71,9 @@ install-dev:
 check:
 	$(MAKE) lint
 	$(MAKE) test
+
+doctor:
+	./scripts/doctor.sh $(DOCTOR_FLAGS)
 
 smoke:
 	AI_PROVIDER=fake DEBUG=true $(PYTHON) scripts/smoke/run_smoke.py
