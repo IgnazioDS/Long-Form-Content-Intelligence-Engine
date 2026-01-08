@@ -209,10 +209,17 @@ export default function SourcesPage() {
                 sources.map((source) => {
                   const status = (source.status || "UNKNOWN").toUpperCase();
                   const isReady = status === "READY";
+                  const errorText =
+                    status === "FAILED" && source.error ? source.error : null;
                   return (
                     <TableRow key={source.id}>
                       <TableCell className="font-medium text-foreground">
-                        {source.title || source.original_filename || "Untitled"}
+                        <div className="space-y-1">
+                          <p>{source.title || source.original_filename || "Untitled"}</p>
+                          {errorText && (
+                            <p className="text-xs text-rose-600">{errorText}</p>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge
