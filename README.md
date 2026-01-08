@@ -98,6 +98,46 @@ make up
 
 The API will be available at `http://localhost:8000`.
 The UI will be available at `http://localhost:3000`.
+
+### Local run options (exact commands)
+
+Option A (Docker UI, 2 terminals):
+
+Terminal 1 (stack + UI):
+```bash
+cd /Users/ignaziodesantis/Desktop/Development/Long-Form-Content-Intelligence-Engine
+AI_PROVIDER=fake DEBUG=true docker compose up --build
+```
+
+Terminal 2 (smoke test):
+```bash
+cd /Users/ignaziodesantis/Desktop/Development/Long-Form-Content-Intelligence-Engine
+source .venv/bin/activate
+make smoke
+```
+
+Option B (Local UI, 3 terminals):
+
+Terminal 1 (stack only, no UI):
+```bash
+cd /Users/ignaziodesantis/Desktop/Development/Long-Form-Content-Intelligence-Engine
+AI_PROVIDER=fake DEBUG=true docker compose up --build postgres redis api worker
+```
+
+Terminal 2 (smoke test):
+```bash
+cd /Users/ignaziodesantis/Desktop/Development/Long-Form-Content-Intelligence-Engine
+source .venv/bin/activate
+make smoke
+```
+
+Terminal 3 (Next.js UI):
+```bash
+cd /Users/ignaziodesantis/Desktop/Development/Long-Form-Content-Intelligence-Engine/apps/web
+npm install
+cp .env.local.example .env.local
+npm run dev
+```
 For production, set `REQUIRE_API_KEY=true` and define a non-empty `API_KEY`.
 
 Debug endpoints under `/debug/*` are only mounted when `DEBUG=true` and are excluded from
