@@ -95,7 +95,13 @@ def test_query_grouped_groups_citations(monkeypatch: MonkeyPatch) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert set(payload.keys()) == {"answer", "citations", "citation_groups"}
+    assert set(payload.keys()) == {
+        "answer_id",
+        "query_id",
+        "answer",
+        "citations",
+        "citation_groups",
+    }
     assert len(payload["citations"]) == 2
     assert len(payload["citation_groups"]) == 2
 

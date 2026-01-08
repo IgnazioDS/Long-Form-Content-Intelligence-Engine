@@ -95,6 +95,8 @@ def test_query_verified_returns_claims(monkeypatch: MonkeyPatch) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert set(payload.keys()) == {
+        "answer_id",
+        "query_id",
         "answer",
         "answer_style",
         "citations",
