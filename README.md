@@ -33,9 +33,8 @@ Cloudflare, etc). Configure metrics and tracing explicitly with `METRICS_*` and 
 flags when deploying to production.
 
 Notes:
-- The production image uses a wheel-based install but dependencies are not pinned; for fully
-  deterministic builds, add a constraints/lock file (pip-tools, uv, poetry) and update the
-  Docker build to install with it.
+- The production image uses a wheel-based install and applies `constraints.txt`. For fully
+  deterministic builds, replace it with a fully resolved lock (pip-tools, uv, poetry).
 - `docker-compose.prod.yml` runs `alembic upgrade head` in the API command (safe for a
   single replica). For multi-replica deployments, run a one-off migration job instead:
   ```bash

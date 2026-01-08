@@ -16,8 +16,8 @@ COPY . /app
 
 RUN --mount=type=cache,target=/root/.cache/pip \
   python -m pip install --upgrade pip \
-  && python -m pip wheel --wheel-dir /wheels . \
-  && python -m pip wheel --no-deps --wheel-dir /wheels/app .
+  && python -m pip wheel --wheel-dir /wheels --constraint /app/constraints.txt . \
+  && python -m pip wheel --no-deps --wheel-dir /wheels/app --constraint /app/constraints.txt .
 
 FROM python:3.11-slim AS runtime
 
@@ -34,8 +34,10 @@ RUN groupadd -g ${APP_GID} app \
   && useradd -u ${APP_UID} -g ${APP_GID} -m app
 
 COPY --from=builder /wheels /wheels
+COPY --from=builder /app/constraints.txt /app/constraints.txt
 
 RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
+    --constraint /app/constraints.txt \
     /wheels/app/*.whl \
   && rm -rf /wheels
 
