@@ -45,6 +45,17 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str | None = Field(
         None, alias="OTEL_EXPORTER_OTLP_ENDPOINT"
     )
+    cors_origins: str = Field(
+        "http://localhost:3000,http://127.0.0.1:3000", alias="CORS_ORIGINS"
+    )
+
+    def cors_origins_list(self) -> list[str]:
+        raw = self.cors_origins.strip()
+        if not raw:
+            return []
+        if raw == "*":
+            return ["*"]
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
 settings = Settings()  # type: ignore[call-arg]
