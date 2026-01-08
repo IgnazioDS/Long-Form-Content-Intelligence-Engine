@@ -77,10 +77,14 @@ def query_rag(payload: QueryRequest, session: Session = Depends(get_session)) ->
             )
         )
 
+    citations_payload = [citation.model_dump(mode="json") for citation in citations]
     answer_row = Answer(
         query_id=query_row.id,
         answer=answer_text,
-        raw_citations={"ids": [str(cid) for cid in cited_ids]},
+        raw_citations={
+            "ids": [str(cid) for cid in cited_ids],
+            "citations": citations_payload,
+        },
     )
     session.add(answer_row)
     session.commit()
@@ -94,7 +98,12 @@ def query_rag(payload: QueryRequest, session: Session = Depends(get_session)) ->
         },
     )
 
-    return QueryResponse(answer=answer_text, citations=citations)
+    return QueryResponse(
+        answer_id=answer_row.id,
+        query_id=query_row.id,
+        answer=answer_text,
+        citations=citations,
+    )
 
 
 @router.post("/query/grouped", response_model=QueryGroupedResponse)
@@ -157,10 +166,19 @@ def query_rag_grouped(
             )
         )
 
+    citation_groups = build_citation_groups(citations)
+    citations_payload = [citation.model_dump(mode="json") for citation in citations]
+    citation_groups_payload = [
+        group.model_dump(mode="json") for group in citation_groups
+    ]
     answer_row = Answer(
         query_id=query_row.id,
         answer=answer_text,
-        raw_citations={"ids": [str(cid) for cid in cited_ids]},
+        raw_citations={
+            "ids": [str(cid) for cid in cited_ids],
+            "citations": citations_payload,
+            "citation_groups": citation_groups_payload,
+        },
     )
     session.add(answer_row)
     session.commit()
@@ -174,8 +192,9 @@ def query_rag_grouped(
         },
     )
 
-    citation_groups = build_citation_groups(citations)
     return QueryGroupedResponse(
+        answer_id=answer_row.id,
+        query_id=query_row.id,
         answer=answer_text,
         citations=citations,
         citation_groups=citation_groups,

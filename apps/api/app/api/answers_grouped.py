@@ -33,6 +33,8 @@ def get_answer_grouped(
     hydrated = hydrate_answer_payload(answer_row, grouped=True, highlights=False)
 
     response = QueryVerifiedGroupedResponse(
+        answer_id=answer_row.id,
+        query_id=answer_row.query_id,
         answer=hydrated["answer_text"],
         answer_style=hydrated["answer_style"],
         citations=hydrated["citations"],
@@ -67,6 +69,8 @@ def get_answer_grouped_highlights(
     hydrated = hydrate_answer_payload(answer_row, grouped=True, highlights=True)
 
     response = QueryVerifiedGroupedHighlightsResponse(
+        answer_id=answer_row.id,
+        query_id=answer_row.query_id,
         answer=hydrated["answer_text"],
         answer_style=hydrated["answer_style"],
         citations=hydrated["citations"],

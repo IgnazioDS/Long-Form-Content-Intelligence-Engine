@@ -103,11 +103,13 @@ def query_verified_highlights(
     raw_highlights = [claim.model_dump(mode="json") for claim in highlighted_claims]
     summary_payload = verification_summary.model_dump(mode="json")
 
+    citations_payload = [citation.model_dump(mode="json") for citation in citations]
     answer_row = Answer(
         query_id=query_row.id,
         answer=answer_text,
         raw_citations={
             "ids": [str(cid) for cid in cited_ids],
+            "citations": citations_payload,
             "claims": raw_claims,
             "claims_highlights": raw_highlights,
             "verification_summary": summary_payload,
@@ -127,6 +129,8 @@ def query_verified_highlights(
     )
 
     return QueryVerifiedHighlightsResponse(
+        answer_id=answer_row.id,
+        query_id=query_row.id,
         answer=answer_text,
         answer_style=answer_style,
         citations=citations,
@@ -217,11 +221,17 @@ def query_verified_grouped_highlights(
     raw_highlights = [claim.model_dump(mode="json") for claim in highlighted_claims]
     summary_payload = verification_summary.model_dump(mode="json")
 
+    citations_payload = [citation.model_dump(mode="json") for citation in citations]
+    citation_groups_payload = [
+        group.model_dump(mode="json") for group in citation_groups
+    ]
     answer_row = Answer(
         query_id=query_row.id,
         answer=answer_text,
         raw_citations={
             "ids": [str(cid) for cid in cited_ids],
+            "citations": citations_payload,
+            "citation_groups": citation_groups_payload,
             "claims": raw_claims,
             "claims_highlights": raw_highlights,
             "verification_summary": summary_payload,
@@ -241,6 +251,8 @@ def query_verified_grouped_highlights(
     )
 
     return QueryVerifiedGroupedHighlightsResponse(
+        answer_id=answer_row.id,
+        query_id=query_row.id,
         answer=answer_text,
         answer_style=answer_style,
         citations=citations,

@@ -78,6 +78,7 @@ export type VerificationSummary = {
 export type AnswerResponse = {
   answer?: string;
   answer_id?: string;
+  query_id?: string;
   id?: string;
   citations?: Citation[];
   citation_groups?: CitationGroup[];

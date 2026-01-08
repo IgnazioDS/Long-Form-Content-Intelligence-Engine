@@ -33,6 +33,8 @@ def get_answer_highlights(
     hydrated = hydrate_answer_payload(answer_row, grouped=False, highlights=True)
 
     response = QueryVerifiedHighlightsResponse(
+        answer_id=answer_row.id,
+        query_id=answer_row.query_id,
         answer=hydrated["answer_text"],
         answer_style=hydrated["answer_style"],
         citations=hydrated["citations"],

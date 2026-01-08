@@ -51,12 +51,16 @@ class CitationGroupOut(BaseModel):
 
 
 class QueryResponse(BaseModel):
+    answer_id: UUID | None = None
+    query_id: UUID | None = None
     answer: str
     citations: list[CitationOut]
     model_config = ConfigDict(from_attributes=True)
 
 
 class QueryGroupedResponse(BaseModel):
+    answer_id: UUID | None = None
+    query_id: UUID | None = None
     answer: str
     citations: list[CitationOut]
     citation_groups: list[CitationGroupOut]
@@ -145,6 +149,8 @@ class VerificationSummaryOut(BaseModel):
 
 
 class QueryVerifiedResponse(BaseModel):
+    answer_id: UUID | None = None
+    query_id: UUID | None = None
     answer: str
     answer_style: AnswerStyle
     citations: list[CitationOut]
@@ -163,6 +169,8 @@ class QueryVerifiedResponse(BaseModel):
 
 
 class QueryVerifiedGroupedResponse(BaseModel):
+    answer_id: UUID | None = None
+    query_id: UUID | None = None
     answer: str
     answer_style: AnswerStyle
     citations: list[CitationOut]
@@ -182,6 +190,8 @@ class QueryVerifiedGroupedResponse(BaseModel):
 
 
 class QueryVerifiedHighlightsResponse(BaseModel):
+    answer_id: UUID | None = None
+    query_id: UUID | None = None
     answer: str
     answer_style: AnswerStyle
     citations: list[CitationOut]
@@ -200,6 +210,8 @@ class QueryVerifiedHighlightsResponse(BaseModel):
 
 
 class QueryVerifiedGroupedHighlightsResponse(BaseModel):
+    answer_id: UUID | None = None
+    query_id: UUID | None = None
     answer: str
     answer_style: AnswerStyle
     citations: list[CitationOut]

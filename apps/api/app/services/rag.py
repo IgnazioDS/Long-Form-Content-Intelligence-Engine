@@ -86,8 +86,6 @@ def generate_answer(
 
     allowed_ids = [str(chunk.chunk_id) for chunk in chunks]
     context = build_context(chunks)
-    suggested_ids = [UUID(cid) for cid in allowed_ids]
-
     for attempt in range(2):
         payload = _call_llm(question, context, allowed_ids, strict=attempt == 1)
         if not payload:
@@ -111,12 +109,12 @@ def generate_answer(
                 continue
             return (
                 "insufficient evidence. Suggested follow-ups: clarify the question.",
-                suggested_ids,
+                [],
             )
 
         return answer, [UUID(cid) for cid in citation_ids]
 
-    return "insufficient evidence. Suggested follow-ups: narrow the question.", suggested_ids
+    return "insufficient evidence. Suggested follow-ups: narrow the question.", []
 
 
 @dataclass(frozen=True)
