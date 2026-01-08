@@ -31,6 +31,7 @@ export type Citation = {
   source_title?: string | null;
   page_start?: number | null;
   page_end?: number | null;
+  section_path?: string[] | null;
   snippet: string;
   snippet_start?: number | null;
   snippet_end?: number | null;

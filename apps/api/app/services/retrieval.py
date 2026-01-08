@@ -22,6 +22,7 @@ class RetrievedChunk:
     page_end: int | None
     char_start: int | None
     char_end: int | None
+    section_path: list[str]
     text: str
     score: float
 
@@ -45,6 +46,8 @@ def _upsert_candidate(
     if existing:
         if score > existing.score:
             existing.score = score
+        if not existing.section_path and getattr(row, "section_path", None):
+            existing.section_path = list(row.section_path)
         return
     results[chunk_id] = RetrievedChunk(
         chunk_id=chunk_id,
@@ -54,6 +57,7 @@ def _upsert_candidate(
         page_end=row.page_end,
         char_start=row.char_start,
         char_end=row.char_end,
+        section_path=list(row.section_path or []),
         text=row.text,
         score=score,
     )
@@ -151,6 +155,7 @@ def retrieve_candidates(
                     Chunk.page_end,
                     Chunk.char_start,
                     Chunk.char_end,
+                    Chunk.section_path,
                     Chunk.text,
                     vector_distance.label("distance"),
                 )
@@ -168,6 +173,7 @@ def retrieve_candidates(
                     Chunk.page_end,
                     Chunk.char_start,
                     Chunk.char_end,
+                    Chunk.section_path,
                     Chunk.text,
                     rank.label("rank"),
                 )
@@ -195,6 +201,7 @@ def retrieve_candidates(
                 Chunk.page_end,
                 Chunk.char_start,
                 Chunk.char_end,
+                Chunk.section_path,
                 Chunk.text,
                 vector_distance.label("distance"),
             )
@@ -212,6 +219,7 @@ def retrieve_candidates(
                 Chunk.page_end,
                 Chunk.char_start,
                 Chunk.char_end,
+                Chunk.section_path,
                 Chunk.text,
                 rank.label("rank"),
             )

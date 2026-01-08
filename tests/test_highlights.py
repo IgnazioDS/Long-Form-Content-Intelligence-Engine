@@ -23,6 +23,7 @@ def _make_chunk(
         page_end=1,
         char_start=char_start,
         char_end=char_end,
+        section_path=[],
         text=text,
         score=1.0,
     )

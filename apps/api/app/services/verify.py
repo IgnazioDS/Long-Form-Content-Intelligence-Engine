@@ -854,6 +854,21 @@ def _coerce_optional_int(raw: Any) -> int | None:
     return value
 
 
+def _coerce_section_path(raw: Any) -> list[str] | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        return None
+    cleaned: list[str] = []
+    for item in raw:
+        if item is None:
+            continue
+        value = str(item).strip()
+        if value:
+            cleaned.append(value)
+    return cleaned
+
+
 def _coerce_uuid(raw: Any) -> UUID | None:
     if isinstance(raw, UUID):
         return raw
@@ -988,6 +1003,7 @@ def _coerce_citations_payload(raw: Any) -> list[CitationOut]:
         snippet = str(item.get("snippet") or "")
         page_start = _coerce_optional_int(item.get("page_start"))
         page_end = _coerce_optional_int(item.get("page_end"))
+        section_path = _coerce_section_path(item.get("section_path"))
         snippet_start = _coerce_optional_int(item.get("snippet_start"))
         snippet_end = _coerce_optional_int(item.get("snippet_end"))
         absolute_start = _coerce_optional_int(item.get("absolute_start"))
@@ -999,6 +1015,7 @@ def _coerce_citations_payload(raw: Any) -> list[CitationOut]:
                 source_title=source_title,
                 page_start=page_start,
                 page_end=page_end,
+                section_path=section_path,
                 snippet=snippet,
                 snippet_start=snippet_start,
                 snippet_end=snippet_end,

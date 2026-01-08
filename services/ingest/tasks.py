@@ -46,6 +46,43 @@ def _strip_html(payload: str) -> str:
     return html.unescape(cleaned)
 
 
+def _build_section_map(toc: list[list[object]], page_count: int) -> dict[int, list[str]]:
+    if not toc or page_count <= 0:
+        return {}
+    entries: list[tuple[int, int, int, str]] = []
+    for idx, item in enumerate(toc):
+        if not isinstance(item, (list, tuple)) or len(item) < 3:
+            continue
+        level, title, page = item[:3]
+        if not isinstance(level, int):
+            continue
+        try:
+            page_num = int(page)
+        except (TypeError, ValueError):
+            continue
+        if page_num < 1 or page_num > page_count:
+            continue
+        title_text = str(title).strip()
+        if not title_text:
+            continue
+        entries.append((page_num, idx, level, title_text))
+    if not entries:
+        return {}
+    entries.sort(key=lambda entry: (entry[0], entry[1]))
+    stack: list[tuple[int, str]] = []
+    section_by_page: dict[int, list[str]] = {}
+    entry_idx = 0
+    for page in range(1, page_count + 1):
+        while entry_idx < len(entries) and entries[entry_idx][0] == page:
+            _, _, level, title = entries[entry_idx]
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+            stack.append((level, title))
+            entry_idx += 1
+        section_by_page[page] = [title for _, title in stack]
+    return section_by_page
+
+
 def _is_text_content(content_type: str) -> bool:
     if not content_type:
         return True
@@ -79,6 +116,20 @@ def _pages_from_text(text: str) -> list[tuple[int, str]]:
     return [(1, cleaned)]
 
 
+def _section_path_for_chunk(
+    chunk: object, section_by_page: dict[int, list[str]]
+) -> list[str]:
+    if not section_by_page:
+        return []
+    page_start = getattr(chunk, "page_start", None)
+    if isinstance(page_start, int) and page_start in section_by_page:
+        return section_by_page[page_start]
+    page_end = getattr(chunk, "page_end", None)
+    if isinstance(page_end, int) and page_end in section_by_page:
+        return section_by_page[page_end]
+    return []
+
+
 @shared_task(
     bind=True,
     name="services.ingest.tasks.ingest_source",
@@ -103,6 +154,7 @@ def ingest_source(self, source_id: str) -> None:
 
         source_type = _normalize_source_type(source.source_type)
         pages: list[tuple[int, str]] = []
+        section_by_page: dict[int, list[str]] = {}
         if source_type == _SOURCE_TYPE_PDF:
             path = source_path(source_id, source_type)
             if settings.max_pdf_bytes > 0:
@@ -114,6 +166,9 @@ def ingest_source(self, source_id: str) -> None:
                         "Please upload a smaller file."
                     )
             with fitz.open(str(path)) as doc:
+                section_by_page = _build_section_map(
+                    doc.get_toc(simple=True) or [], doc.page_count
+                )
                 if getattr(doc, "is_encrypted", False) or getattr(doc, "needs_pass", False):
                     raise ValueError("PDF is encrypted. Please upload an unencrypted PDF.")
                 if settings.max_pdf_pages > 0 and doc.page_count > settings.max_pdf_pages:
@@ -149,6 +204,7 @@ def ingest_source(self, source_id: str) -> None:
             synchronize_session=False
         )
         for chunk, embedding in zip(chunks, embeddings, strict=False):
+            section_path = _section_path_for_chunk(chunk, section_by_page)
             session.add(
                 Chunk(
                     source_id=source.id,
@@ -157,7 +213,7 @@ def ingest_source(self, source_id: str) -> None:
                     page_end=chunk.page_end,
                     char_start=chunk.char_start,
                     char_end=chunk.char_end,
-                    section_path=[],
+                    section_path=section_path,
                     text=chunk.text,
                     tsv=func.to_tsvector("english", chunk.text),
                     embedding=embedding,

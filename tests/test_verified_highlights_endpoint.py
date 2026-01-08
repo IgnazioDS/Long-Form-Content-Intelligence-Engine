@@ -46,6 +46,7 @@ def _make_chunk(chunk_id: uuid.UUID, text: str) -> RetrievedChunk:
         page_end=1,
         char_start=char_start,
         char_end=char_start + len(text),
+        section_path=[],
         text=text,
         score=1.0,
     )

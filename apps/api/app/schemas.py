@@ -50,6 +50,7 @@ class CitationOut(BaseModel):
     source_title: str | None
     page_start: int | None
     page_end: int | None
+    section_path: list[str] | None = None
     snippet: str
     snippet_start: int | None = None
     snippet_end: int | None = None
