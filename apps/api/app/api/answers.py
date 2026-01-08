@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from apps.api.app.api._answers_hydration import (
@@ -10,11 +10,33 @@ from apps.api.app.api._answers_hydration import (
     log_verification_inconsistency,
 )
 from apps.api.app.deps import get_session
-from apps.api.app.schemas import QueryVerifiedResponse
+from apps.api.app.schemas import AnswerListOut, AnswerOut, QueryVerifiedResponse
 from apps.api.app.security import require_api_key
 from packages.shared_db.models import Answer
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
+
+
+@router.get("/answers", response_model=AnswerListOut)
+def list_answers(
+    session: Session = Depends(get_session),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    query_id: uuid.UUID | None = Query(None),
+) -> AnswerListOut:
+    query = session.query(Answer)
+    if query_id:
+        query = query.filter(Answer.query_id == query_id)
+    total = query.count()
+    answers = (
+        query.order_by(Answer.created_at.desc()).offset(offset).limit(limit).all()
+    )
+    return AnswerListOut(
+        answers=[AnswerOut.model_validate(answer) for answer in answers],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/answers/{answer_id}", response_model=QueryVerifiedResponse)

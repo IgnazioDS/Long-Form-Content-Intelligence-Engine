@@ -3,7 +3,8 @@ from __future__ import annotations
 import shutil
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from apps.api.app.deps import get_session
@@ -75,9 +76,32 @@ def ingest_source(
 
 
 @router.get("/sources", response_model=SourceListOut)
-def list_sources(session: Session = Depends(get_session)) -> SourceListOut:
-    sources = session.query(Source).order_by(Source.created_at.desc()).all()
-    return SourceListOut(sources=[SourceOut.model_validate(source) for source in sources])
+def list_sources(
+    session: Session = Depends(get_session),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    status: str | None = Query(None),
+    source_type: str | None = Query(None),
+) -> SourceListOut:
+    query = session.query(Source)
+    if status:
+        normalized = status.strip().upper()
+        if normalized:
+            query = query.filter(func.upper(Source.status) == normalized)
+    if source_type:
+        normalized = source_type.strip().lower()
+        if normalized:
+            query = query.filter(func.lower(Source.source_type) == normalized)
+    total = query.count()
+    sources = (
+        query.order_by(Source.created_at.desc()).offset(offset).limit(limit).all()
+    )
+    return SourceListOut(
+        sources=[SourceOut.model_validate(source) for source in sources],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.delete("/sources/{source_id}", response_model=SourceOut)

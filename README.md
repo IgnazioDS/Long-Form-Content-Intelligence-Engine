@@ -218,6 +218,11 @@ List sources:
 curl http://localhost:8000/sources
 ```
 
+List sources with pagination and filtering:
+```bash
+curl "http://localhost:8000/sources?limit=25&offset=0&status=READY&source_type=pdf"
+```
+
 Query with RAG:
 ```bash
 curl -X POST http://localhost:8000/query \
@@ -237,6 +242,14 @@ Persisted-answer read endpoints (API key required if `API_KEY` is set):
 - `GET /answers/{answer_id}/highlights`
 - `GET /answers/{answer_id}/grouped`
 - `GET /answers/{answer_id}/grouped/highlights`
+List answers with pagination:
+```bash
+curl "http://localhost:8000/answers?limit=25&offset=0"
+```
+Filter answers by query:
+```bash
+curl "http://localhost:8000/answers?query_id=YOUR_QUERY_UUID"
+```
 Legacy-tolerant hydration:
 - Missing `verification_summary`/`answer_style` is derived and normalized to satisfy strict contracts.
 - Summary counts and `answer_style` are repaired to stay consistent with claims/verdicts.

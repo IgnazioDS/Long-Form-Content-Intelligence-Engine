@@ -21,6 +21,9 @@ class SourceOut(BaseModel):
 
 class SourceListOut(BaseModel):
     sources: list[SourceOut]
+    total: int
+    limit: int
+    offset: int
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -71,6 +74,21 @@ class QueryResponse(BaseModel):
     query_id: UUID | None = None
     answer: str
     citations: list[CitationOut]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AnswerOut(BaseModel):
+    id: UUID
+    query_id: UUID
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AnswerListOut(BaseModel):
+    answers: list[AnswerOut]
+    total: int
+    limit: int
+    offset: int
     model_config = ConfigDict(from_attributes=True)
 
 
