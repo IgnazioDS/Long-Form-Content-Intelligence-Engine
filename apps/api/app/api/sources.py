@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from apps.api.app.deps import get_session
-from apps.api.app.schemas import SourceListOut, SourceOut
+from apps.api.app.schemas import SourceIngestRequest, SourceListOut, SourceOut
 from apps.api.app.security import require_api_key
 from packages.shared_db.models import Source, SourceStatus
 from packages.shared_db.storage import source_path
@@ -36,9 +36,38 @@ def upload_source(
     session.commit()
     session.refresh(source)
 
-    target_path = source_path(str(source.id))
+    target_path = source_path(str(source.id), source.source_type)
     with target_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
+
+    celery_app.send_task("services.ingest.tasks.ingest_source", args=[str(source.id)])
+
+    return SourceOut.model_validate(source)
+
+
+@router.post("/sources/ingest", response_model=SourceOut)
+def ingest_source(
+    payload: SourceIngestRequest, session: Session = Depends(get_session)
+) -> SourceOut:
+    has_text = bool(payload.text and payload.text.strip())
+    source_type = "text" if has_text else "url"
+    title = payload.title or (str(payload.url) if payload.url else "Ingested text")
+
+    source = Source(
+        title=title,
+        source_type=source_type,
+        original_filename=str(payload.url) if payload.url else None,
+        status=SourceStatus.UPLOADED.value,
+    )
+    session.add(source)
+    session.commit()
+    session.refresh(source)
+
+    target_path = source_path(str(source.id), source.source_type)
+    if has_text:
+        target_path.write_text(payload.text.strip(), encoding="utf-8")
+    else:
+        target_path.write_text(str(payload.url), encoding="utf-8")
 
     celery_app.send_task("services.ingest.tasks.ingest_source", args=[str(source.id)])
 
@@ -56,11 +85,11 @@ def delete_source(source_id: UUID, session: Session = Depends(get_session)) -> S
     source = session.get(Source, source_id)
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found")
+    target_path = source_path(str(source_id), source.source_type)
     session.delete(source)
     session.commit()
     try:
-        source_path(str(source_id)).unlink(missing_ok=True)
+        target_path.unlink(missing_ok=True)
     except OSError:
         pass
     return SourceOut.model_validate(source)
-

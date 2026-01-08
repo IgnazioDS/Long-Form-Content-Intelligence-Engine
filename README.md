@@ -199,6 +199,20 @@ curl -F "file=@/path/to/document.pdf" -F "title=My Doc" \
   http://localhost:8000/sources/upload
 ```
 
+Ingest raw text:
+```bash
+curl -X POST http://localhost:8000/sources/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Paste long-form text here.", "title": "My Text"}'
+```
+
+Ingest a URL:
+```bash
+curl -X POST http://localhost:8000/sources/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com", "title": "Example"}'
+```
+
 List sources:
 ```bash
 curl http://localhost:8000/sources

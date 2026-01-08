@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, HttpUrl, model_validator
 from pydantic.config import ConfigDict
 
 
@@ -21,6 +21,20 @@ class SourceOut(BaseModel):
 class SourceListOut(BaseModel):
     sources: list[SourceOut]
     model_config = ConfigDict(from_attributes=True)
+
+
+class SourceIngestRequest(BaseModel):
+    text: str | None = None
+    url: HttpUrl | None = None
+    title: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_payload(self) -> "SourceIngestRequest":
+        has_text = bool(self.text and self.text.strip())
+        has_url = self.url is not None
+        if has_text == has_url:
+            raise ValueError("Provide exactly one of text or url.")
+        return self
 
 
 class QueryRequest(BaseModel):
