@@ -79,8 +79,15 @@ def _pages_from_text(text: str) -> list[tuple[int, str]]:
     return [(1, cleaned)]
 
 
-@shared_task(name="services.ingest.tasks.ingest_source")
-def ingest_source(source_id: str) -> None:
+@shared_task(
+    bind=True,
+    name="services.ingest.tasks.ingest_source",
+    autoretry_for=(httpx.HTTPError,),
+    retry_backoff=True,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 3},
+)
+def ingest_source(self, source_id: str) -> None:
     session = SessionLocal()
     source: Source | None = None
     try:
@@ -166,8 +173,18 @@ def ingest_source(source_id: str) -> None:
         session.rollback()
         if source is not None:
             error_text = str(exc).strip() or exc.__class__.__name__
-            source.status = SourceStatus.FAILED.value
-            source.error = error_text[:500]
-            session.commit()
+            should_retry = isinstance(exc, httpx.HTTPError) and (
+                self.request.retries < self.max_retries
+            )
+            if should_retry:
+                source.status = SourceStatus.PROCESSING.value
+                source.error = None
+                session.commit()
+            else:
+                source.status = SourceStatus.FAILED.value
+                source.error = error_text[:500]
+                session.commit()
+            if should_retry:
+                raise
     finally:
         session.close()

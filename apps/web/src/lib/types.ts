@@ -10,6 +10,7 @@ export type Source = {
   source_type?: string;
   original_filename?: string | null;
   status?: string;
+  ingest_task_id?: string | null;
   created_at?: string;
   updated_at?: string;
 };

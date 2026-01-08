@@ -40,9 +40,9 @@ def upload_source(
     with target_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    celery_app.send_task("services.ingest.tasks.ingest_source", args=[str(source.id)])
+    task = celery_app.send_task("services.ingest.tasks.ingest_source", args=[str(source.id)])
 
-    return SourceOut.model_validate(source)
+    return SourceOut.model_validate(source).model_copy(update={"ingest_task_id": task.id})
 
 
 @router.post("/sources/ingest", response_model=SourceOut)
@@ -69,9 +69,9 @@ def ingest_source(
     else:
         target_path.write_text(str(payload.url), encoding="utf-8")
 
-    celery_app.send_task("services.ingest.tasks.ingest_source", args=[str(source.id)])
+    task = celery_app.send_task("services.ingest.tasks.ingest_source", args=[str(source.id)])
 
-    return SourceOut.model_validate(source)
+    return SourceOut.model_validate(source).model_copy(update={"ingest_task_id": task.id})
 
 
 @router.get("/sources", response_model=SourceListOut)

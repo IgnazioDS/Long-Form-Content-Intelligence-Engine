@@ -14,6 +14,7 @@ class SourceOut(BaseModel):
     source_type: str
     original_filename: str | None
     status: str
+    ingest_task_id: str | None = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
