@@ -33,6 +33,7 @@ type ApiFetchOptions = {
 let runtimeApiBaseUrl: string | null = null;
 let runtimeApiKey: string | null = null;
 const configListeners = new Set<() => void>();
+let cachedSnapshot: ApiConfigSnapshot | null = null;
 
 function notifyConfigListeners() {
   configListeners.forEach((listener) => listener());
@@ -132,11 +133,22 @@ export function getApiConfigGuardMessage(baseUrl = resolveApiBaseUrl()) {
 
 export function getApiConfigSnapshot(): ApiConfigSnapshot {
   const baseUrl = resolveApiBaseUrl();
-  return {
+  const apiKey = resolveApiKey();
+  const guardMessage = getApiConfigGuardMessage(baseUrl);
+  if (
+    cachedSnapshot &&
+    cachedSnapshot.baseUrl === baseUrl &&
+    cachedSnapshot.apiKey === apiKey &&
+    cachedSnapshot.guardMessage === guardMessage
+  ) {
+    return cachedSnapshot;
+  }
+  cachedSnapshot = {
     baseUrl,
-    apiKey: resolveApiKey(),
-    guardMessage: getApiConfigGuardMessage(baseUrl),
+    apiKey,
+    guardMessage,
   };
+  return cachedSnapshot;
 }
 
 export function setApiConfig(config: { baseUrl?: string | null; apiKey?: string | null }) {
