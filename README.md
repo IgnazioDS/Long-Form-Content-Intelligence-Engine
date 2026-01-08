@@ -97,6 +97,7 @@ make up
 ```
 
 The API will be available at `http://localhost:8000`.
+The UI will be available at `http://localhost:3000`.
 For production, set `REQUIRE_API_KEY=true` and define a non-empty `API_KEY`.
 
 Debug endpoints under `/debug/*` are only mounted when `DEBUG=true` and are excluded from
