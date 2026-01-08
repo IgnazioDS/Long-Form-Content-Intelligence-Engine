@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from apps.api.app.api import (
@@ -23,24 +25,30 @@ from packages.shared_db.settings import detect_max_workers, settings
 configure_logging("api", settings.log_level, force=True)
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="Long-Form Content Intelligence Engine")
-
-    @app.on_event("startup")
-    def validate_api_key_settings() -> None:
-        if settings.require_api_key and not settings.api_key.strip():
+def _validate_api_key_settings() -> None:
+    if settings.require_api_key and not settings.api_key.strip():
+        raise RuntimeError(
+            "REQUIRE_API_KEY=true but API_KEY is missing or blank. "
+            "Set API_KEY to start the API."
+        )
+    if settings.rate_limit_backend == "memory" and settings.rate_limit_rps > 0:
+        max_workers = detect_max_workers()
+        if max_workers > 1 or settings.require_api_key:
             raise RuntimeError(
-                "REQUIRE_API_KEY=true but API_KEY is missing or blank. "
-                "Set API_KEY to start the API."
+                "In-memory rate limiting is not supported in multi-worker/"
+                "production. Use RATE_LIMIT_BACKEND=external and enforce at "
+                "gateway, or run a single worker."
             )
-        if settings.rate_limit_backend == "memory" and settings.rate_limit_rps > 0:
-            max_workers = detect_max_workers()
-            if max_workers > 1 or settings.require_api_key:
-                raise RuntimeError(
-                    "In-memory rate limiting is not supported in multi-worker/"
-                    "production. Use RATE_LIMIT_BACKEND=external and enforce at "
-                    "gateway, or run a single worker."
-                )
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    _validate_api_key_settings()
+    yield
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="Long-Form Content Intelligence Engine", lifespan=lifespan)
 
     app.add_middleware(RequestContextMiddleware)
     if settings.rate_limit_backend == "memory" and settings.rate_limit_rps > 0:
