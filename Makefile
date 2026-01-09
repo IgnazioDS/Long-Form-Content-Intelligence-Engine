@@ -24,11 +24,12 @@ logs-prod:
 	docker compose -f docker-compose.prod.yml logs -f
 
 migrate-prod:
-	docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head
+	docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
 
 smoke-prod:
 	@set -e; \
 	DOCKER_BUILDKIT=1 AI_PROVIDER=fake DEBUG=false REQUIRE_API_KEY=false RATE_LIMIT_BACKEND=external docker compose -f docker-compose.prod.yml up -d --build; \
+	$(MAKE) migrate-prod; \
 	echo "Waiting for http://localhost:8000/health"; \
 	for i in $$(seq 1 60); do \
 		if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then \

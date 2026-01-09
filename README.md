@@ -18,6 +18,10 @@
    ```bash
    cp .env.example .env
    ```
+   For production defaults (retention + backups enabled), start from:
+   ```bash
+   cp .env.prod.example .env
+   ```
 2. Set production flags in `.env`:
    - `REQUIRE_API_KEY=true`
    - `API_KEY=...`
@@ -44,8 +48,7 @@ Notes:
   deterministic builds. Regenerate it when dependency versions change.
 - Update `ops/nginx/nginx.conf` `set_real_ip_from` entries to match your ingress/LB
   networks so rate limiting uses correct client IPs.
-- `docker-compose.prod.yml` runs `alembic upgrade head` in the API command (safe for a
-  single replica). For multi-replica deployments, run a one-off migration job instead:
+- Run migrations as a one-off job before scaling API replicas:
   ```bash
   make migrate-prod
   ```
@@ -130,6 +133,7 @@ intended for dev or single-worker use only.
 - `DEBUG=false` (debug routes not mounted)
 - `RATE_LIMIT_BACKEND=external` and gateway/ingress rate limiting configured
 - `RETENTION_ENABLED=true` with retention windows set for `RETENTION_DAYS_*`
+- `make migrate-prod` run before scaling API replicas
 - Backups enabled via the compose `backup` profile (see below)
 
 ## Retention & Backups (Production)
@@ -147,6 +151,30 @@ docker compose -f docker-compose.prod.yml --profile backup up -d
 
 Backups are written to the `backups_data` volume using `BACKUP_INTERVAL_SECONDS` and
 pruned after `BACKUP_RETENTION_DAYS`.
+
+### Restore runbook (pg_dump)
+
+1. Ensure the backup profile is running:
+   ```bash
+   docker compose -f docker-compose.prod.yml --profile backup up -d
+   ```
+2. List available dumps:
+   ```bash
+   docker compose -f docker-compose.prod.yml exec backup ls -1 /backups
+   ```
+3. Stop write-heavy services:
+   ```bash
+   docker compose -f docker-compose.prod.yml stop api worker maintenance
+   ```
+4. Restore the chosen dump (destructive, replaces current DB):
+   ```bash
+   docker compose -f docker-compose.prod.yml exec backup sh -c \
+     'pg_restore -h postgres -U $POSTGRES_USER -d $POSTGRES_DB --clean --if-exists /backups/<dump-file>.dump'
+   ```
+5. Start services again:
+   ```bash
+   docker compose -f docker-compose.prod.yml start api worker maintenance
+   ```
 
 Handy commands:
 - `make retention-prod` (run retention once)
