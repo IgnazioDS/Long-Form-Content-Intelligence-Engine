@@ -117,6 +117,19 @@ def generate_answer(
     return "insufficient evidence. Suggested follow-ups: narrow the question.", []
 
 
+def enforce_grounded_answer(
+    answer: str, cited_ids: list[UUID]
+) -> tuple[str, list[UUID]]:
+    if cited_ids:
+        return answer, cited_ids
+    if answer.strip().lower().startswith("insufficient evidence"):
+        return answer, cited_ids
+    return (
+        "insufficient evidence. Suggested follow-ups: clarify the question.",
+        [],
+    )
+
+
 @dataclass(frozen=True)
 class SnippetResult:
     snippet_text: str

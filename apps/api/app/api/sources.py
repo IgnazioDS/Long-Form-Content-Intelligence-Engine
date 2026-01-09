@@ -119,6 +119,14 @@ def list_sources(
     )
 
 
+@router.get("/sources/{source_id}", response_model=SourceOut)
+def get_source(source_id: UUID, session: Session = Depends(get_session)) -> SourceOut:
+    source = session.get(Source, source_id)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return SourceOut.model_validate(source)
+
+
 @router.delete("/sources/{source_id}", response_model=SourceOut)
 def delete_source(source_id: UUID, session: Session = Depends(get_session)) -> SourceOut:
     source = session.get(Source, source_id)

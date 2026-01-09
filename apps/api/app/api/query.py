@@ -14,7 +14,12 @@ from apps.api.app.schemas import (
     QueryResponse,
 )
 from apps.api.app.security import require_api_key
-from apps.api.app.services.rag import build_snippet, compute_absolute_offsets, generate_answer
+from apps.api.app.services.rag import (
+    build_snippet,
+    compute_absolute_offsets,
+    enforce_grounded_answer,
+    generate_answer,
+)
 from apps.api.app.services.retrieval import retrieve_candidates
 from packages.shared_db.models import Answer, Query
 from packages.shared_db.openai_client import embed_texts
@@ -51,6 +56,7 @@ def query_rag(payload: QueryRequest, session: Session = Depends(get_session)) ->
     )
 
     answer_text, cited_ids = generate_answer(payload.question, top_chunks)
+    answer_text, cited_ids = enforce_grounded_answer(answer_text, cited_ids)
 
     citations: list[CitationOut] = []
     chunk_lookup = {chunk.chunk_id: chunk for chunk in top_chunks}
@@ -141,6 +147,7 @@ def query_rag_grouped(
     )
 
     answer_text, cited_ids = generate_answer(payload.question, top_chunks)
+    answer_text, cited_ids = enforce_grounded_answer(answer_text, cited_ids)
 
     citations: list[CitationOut] = []
     chunk_lookup = {chunk.chunk_id: chunk for chunk in top_chunks}

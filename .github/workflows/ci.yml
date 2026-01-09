@@ -58,6 +58,8 @@ jobs:
           done
           docker compose logs api
           exit 1
+      - name: Smoke
+        run: make smoke
       - name: Eval
         env:
           EVAL_READY_TIMEOUT_SECONDS: "120"
