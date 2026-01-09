@@ -99,7 +99,7 @@ def _fetch_url_text(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
         raise ValueError("Only http/https URLs are supported.")
-    if not is_url_safe(url):
+    if not is_url_safe(url, allowed_hosts=settings.url_allowlist_hosts()):
         raise ValueError("URL is not allowed.")
     max_bytes = settings.max_url_bytes
     with httpx.stream("GET", url, timeout=20.0, follow_redirects=True) as response:

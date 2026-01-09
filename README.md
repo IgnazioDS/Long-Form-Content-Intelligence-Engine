@@ -79,6 +79,7 @@ Notes:
 - `OTEL_ENABLED` (default: `false`)
 - `OTEL_SERVICE_NAME` (default: `long-form-content-intelligence-api`)
 - `OTEL_EXPORTER_OTLP_ENDPOINT` (default: unset; uses OpenTelemetry defaults)
+- `URL_ALLOWLIST` (default: empty; comma-separated hostnames allowed for URL ingest)
 
 Production rate limiting: set `RATE_LIMIT_BACKEND=external` and enforce limits at your
 gateway/ingress (nginx, Cloudflare, ALB, etc). The in-app limiter is in-memory and

@@ -66,7 +66,9 @@ def ingest_source(
     has_text = bool(payload.text and payload.text.strip())
     source_type = "text" if has_text else "url"
     title = payload.title or (str(payload.url) if payload.url else "Ingested text")
-    if payload.url and not is_url_safe(str(payload.url)):
+    if payload.url and not is_url_safe(
+        str(payload.url), allowed_hosts=settings.url_allowlist_hosts()
+    ):
         raise HTTPException(status_code=400, detail="URL is not allowed")
 
     source = Source(

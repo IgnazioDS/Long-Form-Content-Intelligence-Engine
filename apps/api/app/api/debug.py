@@ -13,12 +13,18 @@ from packages.shared_db.settings import settings
 router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
+def _ensure_debug_available() -> None:
+    if not settings.debug:
+        raise HTTPException(status_code=404, detail="Not found")
+    if not settings.api_key.strip():
+        raise HTTPException(status_code=404, detail="Not found")
+
+
 @router.get("/debug/sources/{source_id}/chunks")
 def debug_list_chunks(
     source_id: UUID, session: Session = Depends(get_session)
 ) -> dict[str, object]:
-    if not settings.debug:
-        raise HTTPException(status_code=404, detail="Not found")
+    _ensure_debug_available()
     rows = (
         session.query(Chunk.id)
         .filter(Chunk.source_id == source_id)
@@ -32,8 +38,7 @@ def debug_list_chunks(
 def debug_get_chunk(
     chunk_id: UUID, session: Session = Depends(get_session)
 ) -> dict[str, object]:
-    if not settings.debug:
-        raise HTTPException(status_code=404, detail="Not found")
+    _ensure_debug_available()
     chunk = session.get(Chunk, chunk_id)
     if chunk is None:
         raise HTTPException(status_code=404, detail="Chunk not found")

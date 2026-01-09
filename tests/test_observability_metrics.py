@@ -129,6 +129,20 @@ def test_http_metrics_recorded(monkeypatch: pytest.MonkeyPatch) -> None:
     assert value >= 1
 
 
+def test_metrics_requires_api_key_when_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "metrics_enabled", True)
+    monkeypatch.setattr(settings, "metrics_path", "/metrics")
+    monkeypatch.setattr(settings, "api_key", "secret")
+    app = create_app()
+    client = TestClient(app)
+
+    unauthorized = client.get(settings.metrics_path)
+    authorized = client.get(settings.metrics_path, headers={"X-API-Key": "secret"})
+
+    assert unauthorized.status_code == 401
+    assert authorized.status_code == 200
+
+
 def test_llm_metrics_increment_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "metrics_enabled", True)
     monkeypatch.setattr(settings, "metrics_path", "/metrics")

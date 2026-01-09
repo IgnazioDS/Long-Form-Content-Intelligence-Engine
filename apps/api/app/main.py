@@ -78,7 +78,7 @@ def create_app() -> FastAPI:
 
     if settings.metrics_enabled:
         app.include_router(metrics_api.get_metrics_router())
-    if settings.debug:
+    if settings.debug and settings.api_key.strip():
         app.include_router(debug.router)
 
     init_tracing_if_enabled(app)

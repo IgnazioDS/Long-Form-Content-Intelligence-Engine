@@ -42,13 +42,30 @@ def _resolved_host_is_public(host: str) -> bool:
     return True
 
 
-def is_url_safe(url: str) -> bool:
+def _host_matches_allowlist(host: str, allowlist: set[str]) -> bool:
+    if not allowlist:
+        return True
+    normalized = host.strip().lower()
+    if not normalized:
+        return False
+    if normalized in allowlist:
+        return True
+    for entry in allowlist:
+        if normalized.endswith("." + entry):
+            return True
+    return False
+
+
+def is_url_safe(url: str, *, allowed_hosts: set[str] | None = None) -> bool:
     parsed = urlparse(url)
     host = parsed.hostname
     if not host:
         return False
     normalized = host.strip().lower()
     if normalized in _BLOCKED_HOSTS:
+        return False
+    allowlist = allowed_hosts or set()
+    if not _host_matches_allowlist(normalized, allowlist):
         return False
     try:
         ip = ipaddress.ip_address(normalized)

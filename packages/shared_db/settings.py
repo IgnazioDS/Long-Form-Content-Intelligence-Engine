@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     cors_origins: str = Field(
         "http://localhost:3000,http://127.0.0.1:3000", alias="CORS_ORIGINS"
     )
+    url_allowlist: str = Field("", alias="URL_ALLOWLIST")
 
     def cors_origins_list(self) -> list[str]:
         raw = self.cors_origins.strip()
@@ -58,6 +59,12 @@ class Settings(BaseSettings):
         if raw == "*":
             return ["*"]
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+    def url_allowlist_hosts(self) -> set[str]:
+        raw = self.url_allowlist.strip()
+        if not raw:
+            return set()
+        return {host.strip().lower() for host in raw.split(",") if host.strip()}
 
 
 settings = Settings()  # type: ignore[call-arg]

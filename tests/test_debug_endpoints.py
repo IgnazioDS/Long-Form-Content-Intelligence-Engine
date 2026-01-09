@@ -104,3 +104,14 @@ def test_debug_endpoints_available_when_debug_true(monkeypatch: MonkeyPatch) -> 
     assert schema_response.status_code == 200
     paths = schema_response.json().get("paths", {})
     assert "/debug/chunks/{chunk_id}" in paths
+
+
+def test_debug_endpoints_hidden_without_api_key(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "debug", True)
+    monkeypatch.setattr(settings, "api_key", "")
+
+    app = create_app()
+    client = TestClient(app)
+    response = client.get(f"/debug/chunks/{uuid.uuid4()}")
+
+    assert response.status_code == 404
