@@ -51,7 +51,16 @@ def _host_matches_allowlist(host: str, allowlist: set[str]) -> bool:
     if normalized in allowlist:
         return True
     for entry in allowlist:
-        if normalized.endswith("." + entry):
+        entry = entry.strip().lower()
+        if entry.startswith("*.") and len(entry) > 2:
+            base = entry[2:]
+        elif entry.startswith(".") and len(entry) > 1:
+            base = entry[1:]
+        else:
+            continue
+        if normalized == base:
+            continue
+        if normalized.endswith("." + base):
             return True
     return False
 

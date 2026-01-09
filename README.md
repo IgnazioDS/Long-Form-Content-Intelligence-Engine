@@ -93,7 +93,7 @@ Notes:
 - `OTEL_ENABLED` (default: `false`)
 - `OTEL_SERVICE_NAME` (default: `long-form-content-intelligence-api`)
 - `OTEL_EXPORTER_OTLP_ENDPOINT` (default: unset; uses OpenTelemetry defaults)
-- `URL_ALLOWLIST` (default: empty; comma-separated hostnames allowed for URL ingest)
+- `URL_ALLOWLIST` (default: empty; comma-separated hostnames allowed for URL ingest; use `*.example.com` or `.example.com` for subdomains)
 - `STORAGE_ROOT` (default: `storage`; relative paths are resolved from the repo root)
 - `WORKER_CONCURRENCY` (default: `2`)
 - `WORKER_PREFETCH_MULTIPLIER` (default: `1`)
@@ -160,7 +160,7 @@ Option A (Docker UI, 2 terminals):
 Terminal 1 (stack + UI):
 ```bash
 cd /Users/ignaziodesantis/Desktop/Development/Long-Form-Content-Intelligence-Engine
-AI_PROVIDER=fake DEBUG=true docker compose up --build
+AI_PROVIDER=fake DEBUG=true REQUIRE_API_KEY=false docker compose up --build
 ```
 
 Terminal 2 (smoke test):
@@ -175,7 +175,7 @@ Option B (Local UI, 3 terminals):
 Terminal 1 (stack only, no UI):
 ```bash
 cd /Users/ignaziodesantis/Desktop/Development/Long-Form-Content-Intelligence-Engine
-AI_PROVIDER=fake DEBUG=true docker compose up --build postgres redis api worker
+AI_PROVIDER=fake DEBUG=true REQUIRE_API_KEY=false docker compose up --build postgres redis api worker
 ```
 
 Terminal 2 (smoke test):

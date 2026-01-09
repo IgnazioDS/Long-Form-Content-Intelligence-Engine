@@ -29,7 +29,7 @@ def test_allowlist_blocks_nonlisted_host(monkeypatch: Any) -> None:
 
 def test_allowlist_allows_subdomain(monkeypatch: Any) -> None:
     monkeypatch.setattr(socket, "getaddrinfo", _fake_getaddrinfo)
-    assert is_url_safe("https://api.example.com", allowed_hosts={"example.com"})
+    assert is_url_safe("https://api.example.com", allowed_hosts={"*.example.com"})
 
 
 def test_allowlist_allows_ip(monkeypatch: Any) -> None:
