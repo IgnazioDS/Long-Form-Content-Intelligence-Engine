@@ -38,4 +38,5 @@ keys and rotate them as needed.
 - `NEXT_PUBLIC_MAX_PDF_BYTES` (optional): Max PDF size shown in the upload helper text.
 - `NEXT_PUBLIC_MAX_PDF_PAGES` (optional): Max PDF pages shown in the upload helper text.
 - `NEXT_PUBLIC_MAX_URL_BYTES` (optional): Max URL size shown in the ingest helper text.
+- `NEXT_PUBLIC_MAX_TEXT_BYTES` (optional): Max text size shown in the ingest helper text.
 - `NEXT_PUBLIC_URL_INGEST_ENABLED` (optional): Set to `false` to disable URL ingest in the UI.

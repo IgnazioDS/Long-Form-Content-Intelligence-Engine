@@ -1,4 +1,4 @@
-.PHONY: up down build-prod up-prod down-prod down-prod-volumes logs-prod migrate-prod smoke-prod ci-build-prod test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-openai-verified-smoke eval-openai-verified-contradictions-smoke eval-evidence-integrity install-dev check doctor
+.PHONY: up down build-prod up-prod down-prod down-prod-volumes logs-prod migrate-prod smoke-prod backup-prod retention-prod retention-prod-dry-run ci-build-prod test lint smoke eval eval-verified eval-verified-conflicts eval-multisource eval-openai-smoke eval-openai-verified-smoke eval-openai-verified-contradictions-smoke eval-evidence-integrity install-dev check doctor
 
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
@@ -53,6 +53,17 @@ smoke-prod:
 	done; \
 	echo "Smoke-prod passed"; \
 	echo "Run 'make down-prod' to stop the prod stack"
+
+backup-prod:
+	docker compose -f docker-compose.prod.yml --profile backup up -d backup
+
+retention-prod:
+	docker compose -f docker-compose.prod.yml run --rm maintenance \
+		python -m packages.shared_db.maintenance --force
+
+retention-prod-dry-run:
+	docker compose -f docker-compose.prod.yml run --rm maintenance \
+		python -m packages.shared_db.maintenance --dry-run --force
 
 ci-build-prod:
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile.prod .

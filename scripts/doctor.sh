@@ -234,6 +234,28 @@ if [[ -f .env ]]; then
   else
     pass "API_KEY check skipped (REQUIRE_API_KEY not true)"
   fi
+
+  retention_enabled="$(get_env_value "RETENTION_ENABLED")"
+  if [[ "$retention_enabled" =~ ^([Tt][Rr][Uu][Ee]|1|yes|YES)$ ]]; then
+    sources_days="$(get_env_value "RETENTION_DAYS_SOURCES")"
+    queries_days="$(get_env_value "RETENTION_DAYS_QUERIES")"
+    answers_days="$(get_env_value "RETENTION_DAYS_ANSWERS")"
+    if [[ "${sources_days:-0}" == "0" && "${queries_days:-0}" == "0" && "${answers_days:-0}" == "0" ]]; then
+      warn "RETENTION_ENABLED=true but RETENTION_DAYS_* are all 0 (no data will be pruned)"
+    else
+      pass "Retention enabled (sources=${sources_days:-0}d, queries=${queries_days:-0}d, answers=${answers_days:-0}d)"
+    fi
+  else
+    warn "RETENTION_ENABLED=false (no automated data expiry)"
+  fi
+
+  backup_interval="$(get_env_value "BACKUP_INTERVAL_SECONDS")"
+  backup_retention="$(get_env_value "BACKUP_RETENTION_DAYS")"
+  if [[ -n "$backup_interval" && -n "$backup_retention" ]]; then
+    pass "Backup schedule configured (interval=${backup_interval}s, retention=${backup_retention}d)"
+  else
+    warn "Backup schedule not configured (use the compose backup profile)"
+  fi
 else
   fail ".env missing (copy .env.example to .env)"
 fi

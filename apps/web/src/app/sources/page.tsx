@@ -47,6 +47,7 @@ const AUTO_REFRESH_MS = 10_000;
 const DEFAULT_MAX_PDF_BYTES = 25_000_000;
 const DEFAULT_MAX_PDF_PAGES = 300;
 const DEFAULT_MAX_URL_BYTES = 2_000_000;
+const DEFAULT_MAX_TEXT_BYTES = 2_000_000;
 function parseEnvNumber(raw: string | undefined, fallback: number) {
   if (raw === undefined) {
     return fallback;
@@ -66,6 +67,10 @@ const MAX_PDF_PAGES = parseEnvNumber(
 const MAX_URL_BYTES = parseEnvNumber(
   process.env.NEXT_PUBLIC_MAX_URL_BYTES,
   DEFAULT_MAX_URL_BYTES
+);
+const MAX_TEXT_BYTES = parseEnvNumber(
+  process.env.NEXT_PUBLIC_MAX_TEXT_BYTES,
+  DEFAULT_MAX_TEXT_BYTES
 );
 const URL_INGEST_ENABLED = process.env.NEXT_PUBLIC_URL_INGEST_ENABLED !== "false";
 
@@ -158,6 +163,14 @@ export default function SourcesPage() {
       toast.error("Only PDF uploads are supported.");
       return;
     }
+    if (MAX_PDF_BYTES > 0 && file.size > MAX_PDF_BYTES) {
+      toast.error(
+        `File is too large (${formatBytes(file.size)}). Max is ${formatBytes(
+          MAX_PDF_BYTES
+        )}.`
+      );
+      return;
+    }
 
     setIsUploading(true);
     try {
@@ -201,6 +214,17 @@ export default function SourcesPage() {
     if (text && url) {
       toast.error("Choose text or URL, not both.");
       return;
+    }
+    if (text && MAX_TEXT_BYTES > 0) {
+      const textBytes = new TextEncoder().encode(text).length;
+      if (textBytes > MAX_TEXT_BYTES) {
+        toast.error(
+          `Text is too large (${formatBytes(textBytes)}). Max is ${formatBytes(
+            MAX_TEXT_BYTES
+          )}.`
+        );
+        return;
+      }
     }
     if (!URL_INGEST_ENABLED && url) {
       toast.error("URL ingest is disabled in this environment.");
@@ -304,6 +328,9 @@ export default function SourcesPage() {
                 value={ingestText}
                 onChange={(event) => setIngestText(event.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Max text size {formatBytes(MAX_TEXT_BYTES)}.
+              </p>
             </div>
             <div className="grid gap-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

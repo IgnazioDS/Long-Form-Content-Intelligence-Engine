@@ -3,9 +3,9 @@ services:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: lfcie
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-lfcie}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -84,6 +84,46 @@ services:
       - storage_data:/app/storage
     command: celery -A services.ingest.worker.celery_app worker --loglevel=info
 
+  maintenance:
+    image: lfcie-prod
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RETENTION_ENABLED: ${RETENTION_ENABLED:-false}
+      RETENTION_INTERVAL_SECONDS: ${RETENTION_INTERVAL_SECONDS:-86400}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - storage_data:/app/storage
+    command: >
+      /bin/sh -c "python -m packages.shared_db.maintenance --interval ${RETENTION_INTERVAL_SECONDS:-86400}"
+
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    profiles:
+      - backup
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-lfcie}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - backups_data:/backups
+    command: >
+      /bin/sh -c "while true; do
+        ts=$$(date +%Y%m%d_%H%M%S);
+        pg_dump -h postgres -U $${POSTGRES_USER} -Fc $${POSTGRES_DB} > /backups/lfcie_$${ts}.dump;
+        find /backups -type f -name 'lfcie_*.dump' -mtime +$${BACKUP_RETENTION_DAYS} -delete;
+        sleep $${BACKUP_INTERVAL_SECONDS};
+      done"
+
 volumes:
   postgres_data:
   storage_data:
+  backups_data:

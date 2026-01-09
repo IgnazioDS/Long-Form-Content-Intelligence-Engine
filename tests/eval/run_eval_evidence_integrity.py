@@ -19,6 +19,7 @@ from _common.api_client import (  # noqa: E402
     delete_source,
     find_source_by_filename,
     fixture_pdf_path,
+    get_api_headers,
     get_base_url,
     get_debug_chunk_ids,
     get_debug_chunk_info,
@@ -485,7 +486,7 @@ def main() -> None:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    with httpx.Client(timeout=http_timeout) as client:
+    with httpx.Client(timeout=http_timeout, headers=get_api_headers()) as client:
         wait_for_health(client, base_url, timeout_s=ready_timeout)
         pdf_path = resolve_fixture_path(fixture_name)
         source_id, _ = resolve_source_id(client, base_url, pdf_path, ready_timeout)

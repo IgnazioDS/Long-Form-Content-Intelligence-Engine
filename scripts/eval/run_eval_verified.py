@@ -18,6 +18,7 @@ from _common.api_client import (  # noqa: E402
     delete_source,
     find_source_by_filename,
     fixture_pdf_path,
+    get_api_headers,
     get_base_url,
     get_debug_chunk_ids,
     list_sources,
@@ -777,7 +778,7 @@ def main() -> None:
     )
     thresholds = load_thresholds(thresholds_path, thresholds_section)
 
-    with httpx.Client(timeout=float(http_timeout)) as client:
+    with httpx.Client(timeout=float(http_timeout), headers=get_api_headers()) as client:
         wait_for_health(client, base_url, ready_timeout)
 
         source_id, source_payload = resolve_source_id(

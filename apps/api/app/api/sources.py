@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 from uuid import UUID
@@ -18,6 +19,7 @@ from packages.shared_db.url_guard import is_url_safe
 from services.ingest.worker import celery_app
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/sources/upload", response_model=SourceOut)
@@ -28,6 +30,8 @@ def upload_source(
 ) -> SourceOut:
     filename = file.filename or ""
     if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF uploads are supported")
+    if file.content_type and "pdf" not in file.content_type.lower():
         raise HTTPException(status_code=400, detail="Only PDF uploads are supported")
     max_bytes = settings.max_pdf_bytes
     if max_bytes > 0:
@@ -56,6 +60,14 @@ def upload_source(
 
     task = celery_app.send_task("services.ingest.tasks.ingest_source", args=[str(source.id)])
 
+    logger.info(
+        "source_uploaded",
+        extra={
+            "source_id": str(source.id),
+            "source_type": source.source_type,
+            "original_filename": source.original_filename,
+        },
+    )
     return SourceOut.model_validate(source).model_copy(update={"ingest_task_id": task.id})
 
 
@@ -66,6 +78,10 @@ def ingest_source(
     has_text = bool(payload.text and payload.text.strip())
     source_type = "text" if has_text else "url"
     title = payload.title or (str(payload.url) if payload.url else "Ingested text")
+    if has_text and settings.max_text_bytes > 0:
+        size_bytes = len(payload.text.encode("utf-8"))
+        if size_bytes > settings.max_text_bytes:
+            raise HTTPException(status_code=413, detail="Text payload too large")
     if payload.url and not is_url_safe(
         str(payload.url), allowed_hosts=settings.url_allowlist_hosts()
     ):
@@ -89,6 +105,14 @@ def ingest_source(
 
     task = celery_app.send_task("services.ingest.tasks.ingest_source", args=[str(source.id)])
 
+    logger.info(
+        "source_ingest_requested",
+        extra={
+            "source_id": str(source.id),
+            "source_type": source.source_type,
+            "original_filename": source.original_filename,
+        },
+    )
     return SourceOut.model_validate(source).model_copy(update={"ingest_task_id": task.id})
 
 
@@ -141,4 +165,12 @@ def delete_source(source_id: UUID, session: Session = Depends(get_session)) -> S
         target_path.unlink(missing_ok=True)
     except OSError:
         pass
+    logger.info(
+        "source_deleted",
+        extra={
+            "source_id": str(source_id),
+            "source_type": source.source_type,
+            "original_filename": source.original_filename,
+        },
+    )
     return SourceOut.model_validate(source)

@@ -9,8 +9,26 @@ import httpx
 
 DEFAULT_BASE_URL = "http://localhost:8000"
 
+def _read_env_value(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is not None and value.strip():
+        return value
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if not env_path.exists():
+        return None
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, raw_value = stripped.split("=", 1)
+        if key.strip() == name:
+            cleaned = raw_value.strip().strip("\"'")
+            return cleaned if cleaned else None
+    return None
+
+
 def _auth_headers() -> dict[str, str]:
-    api_key = (os.getenv("API_KEY") or "").strip()
+    api_key = (_read_env_value("API_KEY") or "").strip()
     if not api_key:
         return {}
     return {"X-API-Key": api_key}

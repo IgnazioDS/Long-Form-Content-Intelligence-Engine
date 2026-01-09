@@ -41,7 +41,12 @@ def get_client() -> OpenAI:
         raise RuntimeError("OpenAI client requested while AI_PROVIDER is not openai")
     global _client
     if _client is None:
-        _client = OpenAI(api_key=settings.openai_api_key)
+        client_kwargs: dict[str, Any] = {"api_key": settings.openai_api_key}
+        if settings.openai_timeout_seconds > 0:
+            client_kwargs["timeout"] = settings.openai_timeout_seconds
+        if settings.openai_max_retries >= 0:
+            client_kwargs["max_retries"] = settings.openai_max_retries
+        _client = OpenAI(**client_kwargs)
     return _client
 
 

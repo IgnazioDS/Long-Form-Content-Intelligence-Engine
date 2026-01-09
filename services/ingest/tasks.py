@@ -201,6 +201,14 @@ def ingest_source(self, source_id: str) -> None:
                         pages.append((page_index, text))
         elif source_type == _SOURCE_TYPE_TEXT:
             path = source_path(source_id, source_type)
+            if settings.max_text_bytes > 0:
+                file_size = path.stat().st_size
+                if file_size > settings.max_text_bytes:
+                    max_mb = settings.max_text_bytes / (1024 * 1024)
+                    raise ValueError(
+                        f"Text exceeds max size of {max_mb:.1f} MB. "
+                        "Please upload a smaller file."
+                    )
             pages = _pages_from_text(_read_text_payload(path))
         elif source_type == _SOURCE_TYPE_URL:
             path = source_path(source_id, source_type)

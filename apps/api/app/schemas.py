@@ -17,6 +17,7 @@ class SourceOut(BaseModel):
     error: str | None = None
     ingest_task_id: str | None = None
     created_at: datetime
+    updated_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
 
 

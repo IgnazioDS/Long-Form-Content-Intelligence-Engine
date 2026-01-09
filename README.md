@@ -42,6 +42,8 @@ Notes:
   ```
 - Postgres/Redis ports are not published in production compose. For local debugging, add
   `ports:` entries or create an override file.
+- If you change `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB`, update `DATABASE_URL`
+  to match.
 
 ## Required Environment Variables
 
@@ -72,8 +74,19 @@ Notes:
 - `MAX_PDF_BYTES` (default: `25000000`)
 - `MAX_PDF_PAGES` (default: `300`)
 - `MAX_URL_BYTES` (default: `2000000`)
+- `MAX_TEXT_BYTES` (default: `2000000`)
 - `EMBED_BATCH_SIZE` (default: `64`)
 - `EMBED_DIM` (default: `1536`; must match the pgvector column size)
+- `OPENAI_TIMEOUT_SECONDS` (default: `30`)
+- `OPENAI_MAX_RETRIES` (default: `3`)
+- `POSTGRES_USER` (default: `postgres`; compose only)
+- `POSTGRES_PASSWORD` (default: `postgres`; compose only)
+- `POSTGRES_DB` (default: `lfcie`; compose only)
+- `DB_POOL_SIZE` (default: `5`)
+- `DB_MAX_OVERFLOW` (default: `10`)
+- `DB_POOL_TIMEOUT` (default: `30`)
+- `DB_POOL_RECYCLE` (default: `1800`)
+- `DB_CONNECT_TIMEOUT` (default: `10`)
 - `LOG_LEVEL` (default: `INFO`)
 - `METRICS_ENABLED` (default: `true`)
 - `METRICS_PATH` (default: `/metrics`)
@@ -82,6 +95,20 @@ Notes:
 - `OTEL_EXPORTER_OTLP_ENDPOINT` (default: unset; uses OpenTelemetry defaults)
 - `URL_ALLOWLIST` (default: empty; comma-separated hostnames allowed for URL ingest)
 - `STORAGE_ROOT` (default: `storage`; relative paths are resolved from the repo root)
+- `WORKER_CONCURRENCY` (default: `2`)
+- `WORKER_PREFETCH_MULTIPLIER` (default: `1`)
+- `WORKER_MAX_TASKS_PER_CHILD` (default: `100`)
+- `WORKER_VISIBILITY_TIMEOUT` (default: `3600`)
+- `WORKER_TASK_TIME_LIMIT` (default: `0`, disabled when `0`)
+- `WORKER_TASK_SOFT_TIME_LIMIT` (default: `0`, disabled when `0`)
+- `RETENTION_ENABLED` (default: `false`)
+- `RETENTION_DAYS_SOURCES` (default: `0`, disabled when `0`)
+- `RETENTION_DAYS_QUERIES` (default: `0`, disabled when `0`)
+- `RETENTION_DAYS_ANSWERS` (default: `0`, disabled when `0`)
+- `RETENTION_BATCH_SIZE` (default: `200`)
+- `RETENTION_INTERVAL_SECONDS` (default: `86400`)
+- `BACKUP_INTERVAL_SECONDS` (default: `86400`)
+- `BACKUP_RETENTION_DAYS` (default: `7`)
 
 Production rate limiting: set `RATE_LIMIT_BACKEND=external` and enforce limits at your
 gateway/ingress (nginx, Cloudflare, ALB, etc). The in-app limiter is in-memory and
@@ -93,6 +120,29 @@ intended for dev or single-worker use only.
 - `API_KEY` set to a non-empty value
 - `DEBUG=false` (debug routes not mounted)
 - `RATE_LIMIT_BACKEND=external` and gateway/ingress rate limiting configured
+- `RETENTION_ENABLED=true` with retention windows set for `RETENTION_DAYS_*`
+- Backups enabled via the compose `backup` profile (see below)
+
+## Retention & Backups (Production)
+
+Retention runs in the `maintenance` service. Enable it by setting `RETENTION_ENABLED=true`
+and choose retention windows (days) for sources/queries/answers. The service runs at
+`RETENTION_INTERVAL_SECONDS` and deletes old rows plus source files on disk.
+
+Backups are provided by the optional `backup` compose profile (Postgres `pg_dump`).
+Enable it with:
+
+```bash
+docker compose -f docker-compose.prod.yml --profile backup up -d
+```
+
+Backups are written to the `backups_data` volume using `BACKUP_INTERVAL_SECONDS` and
+pruned after `BACKUP_RETENTION_DAYS`.
+
+Handy commands:
+- `make retention-prod` (run retention once)
+- `make retention-prod-dry-run` (preview retention deletes)
+- `make backup-prod` (start the backup profile)
 
 ## How to Run Locally
 
