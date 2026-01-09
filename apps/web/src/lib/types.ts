@@ -93,4 +93,10 @@ export type AnswerResponse = {
 
 export type QueryResponse = AnswerResponse;
 
-export type QueryMode = "normal" | "verified" | "verified_highlights";
+export type QueryMode =
+  | "normal"
+  | "grouped"
+  | "verified"
+  | "verified_highlights"
+  | "verified_grouped"
+  | "verified_grouped_highlights";

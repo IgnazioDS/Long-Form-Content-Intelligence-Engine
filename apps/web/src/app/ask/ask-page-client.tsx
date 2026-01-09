@@ -14,7 +14,10 @@ import {
   getErrorMessage,
   listSources,
   query,
+  queryGrouped,
   queryVerified,
+  queryVerifiedGrouped,
+  queryVerifiedGroupedHighlights,
   queryVerifiedHighlights,
 } from "@/lib/api";
 import type { QueryMode, QueryResponse, Source } from "@/lib/types";
@@ -141,10 +144,16 @@ export default function AskPageClient() {
         source_ids: selectedSourceIds,
       };
       let response: QueryResponse;
-      if (mode === "verified") {
+      if (mode === "grouped") {
+        response = await queryGrouped(payload);
+      } else if (mode === "verified") {
         response = await queryVerified(payload);
+      } else if (mode === "verified_grouped") {
+        response = await queryVerifiedGrouped(payload);
       } else if (mode === "verified_highlights") {
         response = await queryVerifiedHighlights(payload);
+      } else if (mode === "verified_grouped_highlights") {
+        response = await queryVerifiedGroupedHighlights(payload);
       } else {
         response = await query(payload);
       }
@@ -250,10 +259,22 @@ export default function AskPageClient() {
                   <span className="text-xs text-muted-foreground">/query</span>
                 </label>
                 <label className="flex items-center gap-3">
+                  <RadioGroupItem value="grouped" />
+                  <span className="text-sm font-medium">Grouped</span>
+                  <span className="text-xs text-muted-foreground">/query/grouped</span>
+                </label>
+                <label className="flex items-center gap-3">
                   <RadioGroupItem value="verified" />
                   <span className="text-sm font-medium">Verified</span>
                   <span className="text-xs text-muted-foreground">
                     /query/verified
+                  </span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <RadioGroupItem value="verified_grouped" />
+                  <span className="text-sm font-medium">Verified (Grouped)</span>
+                  <span className="text-xs text-muted-foreground">
+                    /query/verified/grouped
                   </span>
                 </label>
                 <label className="flex items-center gap-3">
@@ -263,6 +284,15 @@ export default function AskPageClient() {
                   </span>
                   <span className="text-xs text-muted-foreground">
                     /query/verified/highlights
+                  </span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <RadioGroupItem value="verified_grouped_highlights" />
+                  <span className="text-sm font-medium">
+                    Verified + Highlights (Grouped)
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    /query/verified/grouped/highlights
                   </span>
                 </label>
               </RadioGroup>

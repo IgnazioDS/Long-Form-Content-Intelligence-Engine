@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -26,7 +27,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { deleteSource, getErrorMessage, listSources, uploadSource } from "@/lib/api";
+import {
+  deleteSource,
+  getErrorMessage,
+  ingestSource,
+  listSources,
+  uploadSource,
+} from "@/lib/api";
 import type { Source } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +62,10 @@ export default function SourcesPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [ingestTitle, setIngestTitle] = useState("");
+  const [ingestText, setIngestText] = useState("");
+  const [ingestUrl, setIngestUrl] = useState("");
+  const [isIngesting, setIsIngesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Source | null>(null);
 
@@ -120,12 +131,43 @@ export default function SourcesPage() {
     }
   };
 
+  const handleIngest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = ingestText.trim();
+    const url = ingestUrl.trim();
+    if (!text && !url) {
+      toast.error("Provide either text or a URL to ingest.");
+      return;
+    }
+    if (text && url) {
+      toast.error("Choose text or URL, not both.");
+      return;
+    }
+    setIsIngesting(true);
+    try {
+      await ingestSource({
+        text: text || null,
+        url: url || null,
+        title: ingestTitle.trim() || null,
+      });
+      toast.success("Ingestion started.");
+      setIngestTitle("");
+      setIngestText("");
+      setIngestUrl("");
+      await loadSources();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setIsIngesting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold text-foreground">Sources</h2>
         <p className="text-sm text-muted-foreground">
-          Upload PDFs, track ingestion status, and manage sources.
+          Upload PDFs, ingest text/URLs, and manage sources.
         </p>
       </div>
 
@@ -165,6 +207,56 @@ export default function SourcesPage() {
             <Button type="submit" disabled={isUploading || !file}>
               {isUploading ? "Uploading..." : "Upload"}
             </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/60 bg-white/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Ingest text or URL</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4" onSubmit={handleIngest}>
+            <div className="grid gap-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Title
+              </label>
+              <Input
+                placeholder="Optional display title"
+                value={ingestTitle}
+                onChange={(event) => setIngestTitle(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Text
+              </label>
+              <Textarea
+                rows={5}
+                placeholder="Paste long-form text to ingest."
+                value={ingestText}
+                onChange={(event) => setIngestText(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                URL
+              </label>
+              <Input
+                type="url"
+                placeholder="https://example.com"
+                value={ingestUrl}
+                onChange={(event) => setIngestUrl(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Provide either text or a URL.
+              </p>
+            </div>
+            <div>
+              <Button type="submit" disabled={isIngesting}>
+                {isIngesting ? "Submitting..." : "Ingest"}
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>

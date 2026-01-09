@@ -321,6 +321,14 @@ export async function uploadSource(file: File, title?: string | null) {
   return apiFetch<Source>("/sources/upload", { method: "POST", body: form });
 }
 
+export async function ingestSource(payload: {
+  text?: string | null;
+  url?: string | null;
+  title?: string | null;
+}) {
+  return apiFetch<Source>("/sources/ingest", { method: "POST", body: payload });
+}
+
 export async function deleteSource(sourceId: string) {
   return apiFetch<Source>(`/sources/${sourceId}`, { method: "DELETE" });
 }
@@ -329,8 +337,19 @@ export async function query(payload: QueryRequest) {
   return apiFetch<QueryResponse>("/query", { method: "POST", body: payload });
 }
 
+export async function queryGrouped(payload: QueryRequest) {
+  return apiFetch<QueryResponse>("/query/grouped", { method: "POST", body: payload });
+}
+
 export async function queryVerified(payload: QueryRequest) {
   return apiFetch<QueryResponse>("/query/verified", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function queryVerifiedGrouped(payload: QueryRequest) {
+  return apiFetch<QueryResponse>("/query/verified/grouped", {
     method: "POST",
     body: payload,
   });
@@ -343,10 +362,25 @@ export async function queryVerifiedHighlights(payload: QueryRequest) {
   });
 }
 
+export async function queryVerifiedGroupedHighlights(payload: QueryRequest) {
+  return apiFetch<QueryResponse>("/query/verified/grouped/highlights", {
+    method: "POST",
+    body: payload,
+  });
+}
+
 export async function getAnswer(answerId: string) {
   return apiFetch<AnswerResponse>(`/answers/${answerId}`);
 }
 
+export async function getAnswerGrouped(answerId: string) {
+  return apiFetch<AnswerResponse>(`/answers/${answerId}/grouped`);
+}
+
 export async function getAnswerHighlights(answerId: string) {
   return apiFetch<AnswerResponse>(`/answers/${answerId}/highlights`);
+}
+
+export async function getAnswerGroupedHighlights(answerId: string) {
+  return apiFetch<AnswerResponse>(`/answers/${answerId}/grouped/highlights`);
 }

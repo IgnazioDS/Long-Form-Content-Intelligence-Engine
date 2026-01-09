@@ -14,10 +14,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
       - name: Install dev dependencies
         run: |
           python3 -m pip install -U pip
           python3 -m pip install -e ".[dev]"
+      - name: Build web
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        run: |
+          npm ci
+          npm run build
       - name: Lint
         run: make lint
       - name: Test

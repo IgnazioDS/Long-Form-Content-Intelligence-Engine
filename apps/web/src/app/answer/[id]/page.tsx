@@ -14,7 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAnswer, getAnswerHighlights, getErrorMessage } from "@/lib/api";
+import {
+  getAnswer,
+  getAnswerGrouped,
+  getAnswerGroupedHighlights,
+  getAnswerHighlights,
+  getErrorMessage,
+} from "@/lib/api";
 import type {
   AnswerResponse,
   Citation,
@@ -283,7 +289,13 @@ export default function AnswerPage() {
 
   useEffect(() => {
     const paramMode = searchParams.get("mode");
-    if (paramMode === "verified" || paramMode === "verified_highlights") {
+    if (
+      paramMode === "verified" ||
+      paramMode === "verified_highlights" ||
+      paramMode === "grouped" ||
+      paramMode === "verified_grouped" ||
+      paramMode === "verified_grouped_highlights"
+    ) {
       setMode(paramMode);
       return;
     }
@@ -333,10 +345,23 @@ export default function AnswerPage() {
       }
 
       try {
-        const data =
-          mode === "verified_highlights"
+        const isGrouped =
+          mode === "grouped" ||
+          mode === "verified_grouped" ||
+          mode === "verified_grouped_highlights";
+        const isHighlights =
+          mode === "verified_highlights" ||
+          mode === "verified_grouped_highlights";
+        let data: AnswerResponse;
+        if (isGrouped) {
+          data = isHighlights
+            ? await getAnswerGroupedHighlights(answerId)
+            : await getAnswerGrouped(answerId);
+        } else {
+          data = isHighlights
             ? await getAnswerHighlights(answerId)
             : await getAnswer(answerId);
+        }
         setAnswer(data);
       } catch (err) {
         setError(getErrorMessage(err));
