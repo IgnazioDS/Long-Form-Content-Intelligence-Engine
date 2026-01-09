@@ -2,9 +2,17 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
+from apps.api.app.api._idempotency import (
+    QUERY_MODE_VERIFIED_GROUPED_HIGHLIGHTS,
+    QUERY_MODE_VERIFIED_HIGHLIGHTS,
+    attach_idempotency,
+    build_verified_query_response,
+    find_idempotent_answer,
+    normalize_idempotency_key,
+)
 from apps.api.app.api.grouping import build_citation_groups
 from apps.api.app.deps import get_session, settings
 from apps.api.app.schemas import (
@@ -37,8 +45,17 @@ router = APIRouter(dependencies=[Depends(require_api_key)])
 
 @router.post("/query/verified/highlights", response_model=QueryVerifiedHighlightsResponse)
 def query_verified_highlights(
-    payload: QueryRequest, session: Session = Depends(get_session)
+    payload: QueryRequest,
+    session: Session = Depends(get_session),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> QueryVerifiedHighlightsResponse:
+    normalized_key = normalize_idempotency_key(idempotency_key)
+    cached = find_idempotent_answer(
+        session, key=normalized_key, mode=QUERY_MODE_VERIFIED_HIGHLIGHTS
+    )
+    if cached:
+        return build_verified_query_response(cached, grouped=False, highlights=True)
+
     query_embedding = embed_texts([payload.question])[0]
 
     candidates = retrieve_candidates(
@@ -111,17 +128,18 @@ def query_verified_highlights(
     summary_payload = verification_summary.model_dump(mode="json")
 
     citations_payload = [citation.model_dump(mode="json") for citation in citations]
-    answer_row = Answer(
-        query_id=query_row.id,
-        answer=answer_text,
-        raw_citations={
+    raw_citations = attach_idempotency(
+        {
             "ids": [str(cid) for cid in cited_ids],
             "citations": citations_payload,
             "claims": raw_claims,
             "claims_highlights": raw_highlights,
             "verification_summary": summary_payload,
         },
+        key=normalized_key,
+        mode=QUERY_MODE_VERIFIED_HIGHLIGHTS,
     )
+    answer_row = Answer(query_id=query_row.id, answer=answer_text, raw_citations=raw_citations)
     session.add(answer_row)
     session.commit()
 
@@ -151,8 +169,17 @@ def query_verified_highlights(
     response_model=QueryVerifiedGroupedHighlightsResponse,
 )
 def query_verified_grouped_highlights(
-    payload: QueryRequest, session: Session = Depends(get_session)
+    payload: QueryRequest,
+    session: Session = Depends(get_session),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> QueryVerifiedGroupedHighlightsResponse:
+    normalized_key = normalize_idempotency_key(idempotency_key)
+    cached = find_idempotent_answer(
+        session, key=normalized_key, mode=QUERY_MODE_VERIFIED_GROUPED_HIGHLIGHTS
+    )
+    if cached:
+        return build_verified_query_response(cached, grouped=True, highlights=True)
+
     query_embedding = embed_texts([payload.question])[0]
     per_source_limit = (
         settings.per_source_retrieval_limit if payload.source_ids else None
@@ -234,10 +261,8 @@ def query_verified_grouped_highlights(
     citation_groups_payload = [
         group.model_dump(mode="json") for group in citation_groups
     ]
-    answer_row = Answer(
-        query_id=query_row.id,
-        answer=answer_text,
-        raw_citations={
+    raw_citations = attach_idempotency(
+        {
             "ids": [str(cid) for cid in cited_ids],
             "citations": citations_payload,
             "citation_groups": citation_groups_payload,
@@ -245,7 +270,10 @@ def query_verified_grouped_highlights(
             "claims_highlights": raw_highlights,
             "verification_summary": summary_payload,
         },
+        key=normalized_key,
+        mode=QUERY_MODE_VERIFIED_GROUPED_HIGHLIGHTS,
     )
+    answer_row = Answer(query_id=query_row.id, answer=answer_text, raw_citations=raw_citations)
     session.add(answer_row)
     session.commit()
 

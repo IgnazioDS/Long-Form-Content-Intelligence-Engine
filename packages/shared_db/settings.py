@@ -51,6 +51,8 @@ class Settings(BaseSettings):
         "http://localhost:3000,http://127.0.0.1:3000", alias="CORS_ORIGINS"
     )
     url_allowlist: str = Field("", alias="URL_ALLOWLIST")
+    storage_root: str = Field("storage", alias="STORAGE_ROOT")
+    embed_dim: int = Field(1536, alias="EMBED_DIM")
 
     def cors_origins_list(self) -> list[str]:
         raw = self.cors_origins.strip()

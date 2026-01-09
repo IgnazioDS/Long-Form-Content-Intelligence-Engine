@@ -73,6 +73,7 @@ Notes:
 - `MAX_PDF_PAGES` (default: `300`)
 - `MAX_URL_BYTES` (default: `2000000`)
 - `EMBED_BATCH_SIZE` (default: `64`)
+- `EMBED_DIM` (default: `1536`; must match the pgvector column size)
 - `LOG_LEVEL` (default: `INFO`)
 - `METRICS_ENABLED` (default: `true`)
 - `METRICS_PATH` (default: `/metrics`)
@@ -80,6 +81,7 @@ Notes:
 - `OTEL_SERVICE_NAME` (default: `long-form-content-intelligence-api`)
 - `OTEL_EXPORTER_OTLP_ENDPOINT` (default: unset; uses OpenTelemetry defaults)
 - `URL_ALLOWLIST` (default: empty; comma-separated hostnames allowed for URL ingest)
+- `STORAGE_ROOT` (default: `storage`; relative paths are resolved from the repo root)
 
 Production rate limiting: set `RATE_LIMIT_BACKEND=external` and enforce limits at your
 gateway/ingress (nginx, Cloudflare, ALB, etc). The in-app limiter is in-memory and
@@ -229,6 +231,14 @@ Query with RAG:
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
+  -d '{"question": "What is the main thesis?", "source_ids": ["YOUR_SOURCE_UUID"]}'
+```
+
+Optional idempotency (replays return the same answer):
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 5f84a3a1-6e8d-4c8f-9b2f-3d1c40f5f6b1" \
   -d '{"question": "What is the main thesis?", "source_ids": ["YOUR_SOURCE_UUID"]}'
 ```
 

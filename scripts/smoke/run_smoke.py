@@ -13,6 +13,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from _common.api_client import (  # noqa: E402
     fixture_pdf_path,
+    get_api_headers,
     get_base_url,
     get_debug_chunk_ids,
     upload_source,
@@ -28,7 +29,7 @@ def main() -> None:
     debug_attempts = int(os.getenv("SMOKE_DEBUG_ATTEMPTS", "10"))
     debug_sleep_s = float(os.getenv("SMOKE_DEBUG_SLEEP_S", "1"))
 
-    with httpx.Client(timeout=30.0) as client:
+    with httpx.Client(timeout=30.0, headers=get_api_headers()) as client:
         health_url = f"{base_url}/health"
         if not _wait_for_health(client, health_url, attempts, sleep_s):
             if _start_stack_if_needed(base_url):

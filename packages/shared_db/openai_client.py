@@ -19,7 +19,6 @@ from packages.shared_db.observability.metrics import (
 from packages.shared_db.settings import settings
 
 _client: OpenAI | None = None
-_FAKE_EMBED_DIM = 1536
 _CHUNK_ID_RE = re.compile(r"\[CHUNK ([0-9a-fA-F-]{36})\]")
 _FAKE_INSUFFICIENT_HINTS = (
     "publication date",
@@ -46,7 +45,9 @@ def get_client() -> OpenAI:
     return _client
 
 
-def _fake_embedding(text: str, dim: int = _FAKE_EMBED_DIM) -> list[float]:
+def _fake_embedding(text: str, dim: int | None = None) -> list[float]:
+    if dim is None:
+        dim = settings.embed_dim
     digest = hashlib.sha256(text.encode("utf-8")).digest()
     seed = int.from_bytes(digest[:8], "big", signed=False)
     rng = random.Random(seed)
@@ -148,14 +149,27 @@ def _extract_usage_tokens(usage: Any) -> tuple[int | None, int | None, int | Non
 
 @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(3))
 def embed_texts(texts: Iterable[str]) -> list[list[float]]:
+    expected_dim = settings.embed_dim
+    if expected_dim <= 0:
+        raise ValueError("EMBED_DIM must be a positive integer.")
     provider = _provider()
     if provider == "fake":
-        return _fake_embeddings(texts)
+        embeddings = _fake_embeddings(texts)
+        if any(len(item) != expected_dim for item in embeddings):
+            raise ValueError("Fake embeddings did not match EMBED_DIM.")
+        return embeddings
     if provider != "openai":
         raise ValueError(f"Unsupported AI_PROVIDER: {provider}")
     client = get_client()
     response = client.embeddings.create(model=settings.openai_embed_model, input=list(texts))
-    return [item.embedding for item in response.data]
+    embeddings = [item.embedding for item in response.data]
+    for idx, embedding in enumerate(embeddings):
+        if len(embedding) != expected_dim:
+            raise ValueError(
+                f"Embedding dimension mismatch at index {idx}: "
+                f"expected {expected_dim}, got {len(embedding)}."
+            )
+    return embeddings
 
 
 def chat(

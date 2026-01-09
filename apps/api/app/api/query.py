@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
+from apps.api.app.api._idempotency import (
+    QUERY_MODE_GROUPED,
+    QUERY_MODE_STANDARD,
+    attach_idempotency,
+    build_grouped_query_response,
+    build_query_response,
+    find_idempotent_answer,
+    normalize_idempotency_key,
+)
 from apps.api.app.api.grouping import build_citation_groups
 from apps.api.app.deps import get_session, settings
 from apps.api.app.schemas import (
@@ -29,7 +38,18 @@ router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 @router.post("/query", response_model=QueryResponse)
-def query_rag(payload: QueryRequest, session: Session = Depends(get_session)) -> QueryResponse:
+def query_rag(
+    payload: QueryRequest,
+    session: Session = Depends(get_session),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> QueryResponse:
+    normalized_key = normalize_idempotency_key(idempotency_key)
+    cached = find_idempotent_answer(
+        session, key=normalized_key, mode=QUERY_MODE_STANDARD
+    )
+    if cached:
+        return build_query_response(cached)
+
     query_embedding = embed_texts([payload.question])[0]
 
     candidates = retrieve_candidates(
@@ -85,14 +105,12 @@ def query_rag(payload: QueryRequest, session: Session = Depends(get_session)) ->
         )
 
     citations_payload = [citation.model_dump(mode="json") for citation in citations]
-    answer_row = Answer(
-        query_id=query_row.id,
-        answer=answer_text,
-        raw_citations={
-            "ids": [str(cid) for cid in cited_ids],
-            "citations": citations_payload,
-        },
+    raw_citations = attach_idempotency(
+        {"ids": [str(cid) for cid in cited_ids], "citations": citations_payload},
+        key=normalized_key,
+        mode=QUERY_MODE_STANDARD,
     )
+    answer_row = Answer(query_id=query_row.id, answer=answer_text, raw_citations=raw_citations)
     session.add(answer_row)
     session.commit()
 
@@ -115,8 +133,17 @@ def query_rag(payload: QueryRequest, session: Session = Depends(get_session)) ->
 
 @router.post("/query/grouped", response_model=QueryGroupedResponse)
 def query_rag_grouped(
-    payload: QueryRequest, session: Session = Depends(get_session)
+    payload: QueryRequest,
+    session: Session = Depends(get_session),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> QueryGroupedResponse:
+    normalized_key = normalize_idempotency_key(idempotency_key)
+    cached = find_idempotent_answer(
+        session, key=normalized_key, mode=QUERY_MODE_GROUPED
+    )
+    if cached:
+        return build_grouped_query_response(cached)
+
     query_embedding = embed_texts([payload.question])[0]
     per_source_limit = (
         settings.per_source_retrieval_limit if payload.source_ids else None
@@ -180,15 +207,16 @@ def query_rag_grouped(
     citation_groups_payload = [
         group.model_dump(mode="json") for group in citation_groups
     ]
-    answer_row = Answer(
-        query_id=query_row.id,
-        answer=answer_text,
-        raw_citations={
+    raw_citations = attach_idempotency(
+        {
             "ids": [str(cid) for cid in cited_ids],
             "citations": citations_payload,
             "citation_groups": citation_groups_payload,
         },
+        key=normalized_key,
+        mode=QUERY_MODE_GROUPED,
     )
+    answer_row = Answer(query_id=query_row.id, answer=answer_text, raw_citations=raw_citations)
     session.add(answer_row)
     session.commit()
 

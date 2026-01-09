@@ -9,6 +9,16 @@ import httpx
 
 DEFAULT_BASE_URL = "http://localhost:8000"
 
+def _auth_headers() -> dict[str, str]:
+    api_key = (os.getenv("API_KEY") or "").strip()
+    if not api_key:
+        return {}
+    return {"X-API-Key": api_key}
+
+
+def get_api_headers() -> dict[str, str]:
+    return dict(_auth_headers())
+
 
 def get_base_url(override: str | None = None) -> str:
     if override:
@@ -22,7 +32,7 @@ def fixture_pdf_path() -> Path:
 
 
 def list_sources(client: httpx.Client, base_url: str) -> list[dict[str, Any]]:
-    response = client.get(f"{base_url}/sources")
+    response = client.get(f"{base_url}/sources", headers=_auth_headers())
     response.raise_for_status()
     payload = cast(dict[str, Any], response.json())
     sources = payload.get("sources", [])
@@ -76,13 +86,18 @@ def upload_source(
     with pdf_path.open("rb") as handle:
         files = {"file": (pdf_path.name, handle, "application/pdf")}
         data = {"title": title} if title else {}
-        response = client.post(f"{base_url}/sources/upload", files=files, data=data)
+        response = client.post(
+            f"{base_url}/sources/upload",
+            files=files,
+            data=data,
+            headers=_auth_headers(),
+        )
         response.raise_for_status()
         return cast(dict[str, Any], response.json())
 
 
 def delete_source(client: httpx.Client, base_url: str, source_id: str) -> None:
-    response = client.delete(f"{base_url}/sources/{source_id}")
+    response = client.delete(f"{base_url}/sources/{source_id}", headers=_auth_headers())
     if response.status_code == 404:
         return
     response.raise_for_status()
@@ -91,7 +106,9 @@ def delete_source(client: httpx.Client, base_url: str, source_id: str) -> None:
 def get_debug_chunk_ids(
     client: httpx.Client, base_url: str, source_id: str
 ) -> list[str]:
-    response = client.get(f"{base_url}/debug/sources/{source_id}/chunks")
+    response = client.get(
+        f"{base_url}/debug/sources/{source_id}/chunks", headers=_auth_headers()
+    )
     if response.status_code == 404:
         raise RuntimeError("DEBUG=true is required to access debug endpoints")
     response.raise_for_status()
@@ -113,7 +130,7 @@ def get_debug_chunk_text(client: httpx.Client, base_url: str, chunk_id: str) -> 
 def get_debug_chunk_info(
     client: httpx.Client, base_url: str, chunk_id: str
 ) -> dict[str, Any]:
-    response = client.get(f"{base_url}/debug/chunks/{chunk_id}")
+    response = client.get(f"{base_url}/debug/chunks/{chunk_id}", headers=_auth_headers())
     if response.status_code == 404:
         raise RuntimeError("DEBUG=true is required to access debug endpoints")
     response.raise_for_status()

@@ -44,6 +44,41 @@ const STATUS_STYLES: Record<string, string> = {
   UPLOADED: "border-amber-200 bg-amber-50 text-amber-700",
 };
 const AUTO_REFRESH_MS = 10_000;
+const DEFAULT_MAX_PDF_BYTES = 25_000_000;
+const DEFAULT_MAX_PDF_PAGES = 300;
+const DEFAULT_MAX_URL_BYTES = 2_000_000;
+function parseEnvNumber(raw: string | undefined, fallback: number) {
+  if (raw === undefined) {
+    return fallback;
+  }
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+const MAX_PDF_BYTES = parseEnvNumber(
+  process.env.NEXT_PUBLIC_MAX_PDF_BYTES,
+  DEFAULT_MAX_PDF_BYTES
+);
+const MAX_PDF_PAGES = parseEnvNumber(
+  process.env.NEXT_PUBLIC_MAX_PDF_PAGES,
+  DEFAULT_MAX_PDF_PAGES
+);
+const MAX_URL_BYTES = parseEnvNumber(
+  process.env.NEXT_PUBLIC_MAX_URL_BYTES,
+  DEFAULT_MAX_URL_BYTES
+);
+const URL_INGEST_ENABLED = process.env.NEXT_PUBLIC_URL_INGEST_ENABLED !== "false";
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "unlimited";
+  }
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1024) {
+    return `${(mb / 1024).toFixed(1)} GB`;
+  }
+  return `${mb >= 10 ? mb.toFixed(0) : mb.toFixed(1)} MB`;
+}
 
 function formatDate(value?: string) {
   if (!value) {
@@ -167,6 +202,10 @@ export default function SourcesPage() {
       toast.error("Choose text or URL, not both.");
       return;
     }
+    if (!URL_INGEST_ENABLED && url) {
+      toast.error("URL ingest is disabled in this environment.");
+      return;
+    }
     setIsIngesting(true);
     try {
       await ingestSource({
@@ -200,6 +239,10 @@ export default function SourcesPage() {
           <CardTitle className="text-base">Upload a PDF</CardTitle>
         </CardHeader>
         <CardContent>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Max size {formatBytes(MAX_PDF_BYTES)} | Max pages{" "}
+            {MAX_PDF_PAGES > 0 ? MAX_PDF_PAGES : "unlimited"}
+          </p>
           <form
             className="grid gap-4 md:grid-cols-[1.2fr_1fr_auto] md:items-end"
             onSubmit={handleUpload}
@@ -268,12 +311,19 @@ export default function SourcesPage() {
               </label>
               <Input
                 type="url"
-                placeholder="https://example.com"
+                placeholder={
+                  URL_INGEST_ENABLED ? "https://example.com" : "URL ingest disabled"
+                }
                 value={ingestUrl}
                 onChange={(event) => setIngestUrl(event.target.value)}
+                disabled={!URL_INGEST_ENABLED}
               />
               <p className="text-xs text-muted-foreground">
-                Provide either text or a URL.
+                {URL_INGEST_ENABLED
+                  ? `Provide either text or a URL. Max URL size ${formatBytes(
+                      MAX_URL_BYTES
+                    )}.`
+                  : "URL ingest is disabled in this environment."}
               </p>
             </div>
             <div>
@@ -338,7 +388,14 @@ export default function SourcesPage() {
                     <TableRow key={source.id}>
                       <TableCell className="font-medium text-foreground">
                         <div className="space-y-1">
-                          <p>{source.title || source.original_filename || "Untitled"}</p>
+                          <Link
+                            className="hover:underline"
+                            href={`/sources/${source.id}`}
+                          >
+                            {source.title ||
+                              source.original_filename ||
+                              "Untitled"}
+                          </Link>
                           {errorText && (
                             <p className="text-xs text-rose-600">{errorText}</p>
                           )}

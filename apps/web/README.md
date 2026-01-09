@@ -35,3 +35,7 @@ keys and rotate them as needed.
 
 - `NEXT_PUBLIC_API_BASE_URL` (optional): Default base URL for the API. Defaults to `http://localhost:8000`.
 - `NEXT_PUBLIC_API_KEY` (optional): Default API key sent as `X-API-Key` on every request.
+- `NEXT_PUBLIC_MAX_PDF_BYTES` (optional): Max PDF size shown in the upload helper text.
+- `NEXT_PUBLIC_MAX_PDF_PAGES` (optional): Max PDF pages shown in the upload helper text.
+- `NEXT_PUBLIC_MAX_URL_BYTES` (optional): Max URL size shown in the ingest helper text.
+- `NEXT_PUBLIC_URL_INGEST_ENABLED` (optional): Set to `false` to disable URL ingest in the UI.

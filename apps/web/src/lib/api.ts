@@ -312,6 +312,10 @@ export async function listSources() {
   return payload.sources ?? [];
 }
 
+export async function getSource(sourceId: string) {
+  return apiFetch<Source>(`/sources/${sourceId}`);
+}
+
 export async function uploadSource(file: File, title?: string | null) {
   const form = new FormData();
   form.append("file", file);
