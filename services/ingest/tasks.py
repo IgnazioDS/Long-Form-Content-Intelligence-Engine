@@ -101,12 +101,28 @@ def _fetch_url_text(url: str) -> str:
         raise ValueError("Only http/https URLs are supported.")
     if not is_url_safe(url):
         raise ValueError("URL is not allowed.")
-    response = httpx.get(url, timeout=20.0, follow_redirects=True)
-    response.raise_for_status()
-    content_type = response.headers.get("content-type", "")
-    if not _is_text_content(content_type):
-        raise ValueError(f"Unsupported URL content-type: {content_type}")
-    text = response.text
+    max_bytes = settings.max_url_bytes
+    with httpx.stream("GET", url, timeout=20.0, follow_redirects=True) as response:
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "")
+        if max_bytes > 0:
+            header_len = response.headers.get("content-length")
+            if header_len:
+                try:
+                    if int(header_len) > max_bytes:
+                        raise ValueError("URL exceeds max size limit.")
+                except ValueError:
+                    pass
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in response.iter_bytes():
+            total += len(chunk)
+            if max_bytes > 0 and total > max_bytes:
+                raise ValueError("URL exceeds max size limit.")
+            chunks.append(chunk)
+        raw = b"".join(chunks)
+        encoding = response.encoding or "utf-8"
+        text = raw.decode(encoding, errors="replace")
     if "text/html" in content_type or "application/xhtml+xml" in content_type:
         text = _strip_html(text)
     return text
@@ -201,7 +217,13 @@ def ingest_source(self, source_id: str) -> None:
                 "No extractable text found. If this is a scanned PDF, run OCR and re-upload."
             )
 
-        embeddings = embed_texts([chunk.text for chunk in chunks])
+        embeddings: list[list[float]] = []
+        batch_size = max(1, settings.embed_batch_size)
+        for start in range(0, len(chunks), batch_size):
+            batch_texts = [
+                chunk.text for chunk in chunks[start : start + batch_size]
+            ]
+            embeddings.extend(embed_texts(batch_texts))
 
         session.query(Chunk).filter(Chunk.source_id == source.id).delete(
             synchronize_session=False

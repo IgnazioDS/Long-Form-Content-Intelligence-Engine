@@ -71,6 +71,8 @@ Notes:
 - `MMR_CANDIDATES` (default: `30`)
 - `MAX_PDF_BYTES` (default: `25000000`)
 - `MAX_PDF_PAGES` (default: `300`)
+- `MAX_URL_BYTES` (default: `2000000`)
+- `EMBED_BATCH_SIZE` (default: `64`)
 - `LOG_LEVEL` (default: `INFO`)
 - `METRICS_ENABLED` (default: `true`)
 - `METRICS_PATH` (default: `/metrics`)

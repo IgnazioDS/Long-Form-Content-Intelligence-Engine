@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     chunk_char_overlap: int = Field(800, alias="CHUNK_CHAR_OVERLAP")
     max_pdf_bytes: int = Field(25_000_000, alias="MAX_PDF_BYTES")
     max_pdf_pages: int = Field(300, alias="MAX_PDF_PAGES")
+    max_url_bytes: int = Field(2_000_000, alias="MAX_URL_BYTES")
+    embed_batch_size: int = Field(64, alias="EMBED_BATCH_SIZE")
     api_key: str = Field("", alias="API_KEY")
     require_api_key: bool = Field(False, alias="REQUIRE_API_KEY")
     rate_limit_backend: str = Field("memory", alias="RATE_LIMIT_BACKEND")
