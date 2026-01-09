@@ -1,6 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -15,6 +16,7 @@ services:
 
   redis:
     image: redis:7
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -23,6 +25,7 @@ services:
 
   api:
     image: lfcie-prod
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -49,6 +52,7 @@ services:
 
   web:
     image: lfcie-web
+    restart: unless-stopped
     build:
       context: ./apps/web
       target: prod
@@ -62,6 +66,7 @@ services:
 
   worker:
     image: lfcie-prod
+    restart: unless-stopped
     env_file: .env
     environment:
       AI_PROVIDER: ${AI_PROVIDER:-openai}

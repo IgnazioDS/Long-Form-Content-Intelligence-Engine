@@ -52,6 +52,6 @@ USER app
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=2s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()"
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/deps', timeout=2).read()"
 
 CMD ["sh", "-c", "uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-${WEB_CONCURRENCY:-2}}"]
