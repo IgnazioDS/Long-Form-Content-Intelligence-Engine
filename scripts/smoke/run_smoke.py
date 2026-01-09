@@ -29,7 +29,9 @@ def main() -> None:
     debug_attempts = int(os.getenv("SMOKE_DEBUG_ATTEMPTS", "10"))
     debug_sleep_s = float(os.getenv("SMOKE_DEBUG_SLEEP_S", "1"))
 
-    with httpx.Client(timeout=30.0, headers=get_api_headers()) as client:
+    api_headers = get_api_headers()
+    has_api_key = bool(api_headers.get("X-API-Key"))
+    with httpx.Client(timeout=30.0, headers=api_headers) as client:
         health_url = f"{base_url}/health"
         if not _wait_for_health(client, health_url, attempts, sleep_s):
             if _start_stack_if_needed(base_url):
@@ -59,7 +61,14 @@ def main() -> None:
         except RuntimeError as exc:
             if "DEBUG=true is required" not in str(exc):
                 raise
-            if _ensure_debug_endpoints(base_url):
+            if not has_api_key:
+                debug_checks_enabled = False
+                chunk_ids = []
+                print(
+                    "Skipping debug chunk validation; API_KEY is not set. "
+                    "Set API_KEY to enable debug endpoints."
+                )
+            elif _ensure_debug_endpoints(base_url):
                 chunk_ids = _get_debug_chunk_ids_with_retry(
                     client, base_url, source_id, debug_attempts, debug_sleep_s
                 )
