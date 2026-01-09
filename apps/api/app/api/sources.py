@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from uuid import UUID
 
@@ -11,7 +12,9 @@ from apps.api.app.deps import get_session
 from apps.api.app.schemas import SourceIngestRequest, SourceListOut, SourceOut
 from apps.api.app.security import require_api_key
 from packages.shared_db.models import Source, SourceStatus
+from packages.shared_db.settings import settings
 from packages.shared_db.storage import source_path
+from packages.shared_db.url_guard import is_url_safe
 from services.ingest.worker import celery_app
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
@@ -26,6 +29,16 @@ def upload_source(
     filename = file.filename or ""
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF uploads are supported")
+    max_bytes = settings.max_pdf_bytes
+    if max_bytes > 0:
+        try:
+            file.file.seek(0, os.SEEK_END)
+            size_bytes = file.file.tell()
+            file.file.seek(0)
+        except (OSError, ValueError):
+            size_bytes = None
+        if size_bytes is not None and size_bytes > max_bytes:
+            raise HTTPException(status_code=413, detail="Upload too large")
 
     source = Source(
         title=title or filename,
@@ -53,6 +66,8 @@ def ingest_source(
     has_text = bool(payload.text and payload.text.strip())
     source_type = "text" if has_text else "url"
     title = payload.title or (str(payload.url) if payload.url else "Ingested text")
+    if payload.url and not is_url_safe(str(payload.url)):
+        raise HTTPException(status_code=400, detail="URL is not allowed")
 
     source = Source(
         title=title,

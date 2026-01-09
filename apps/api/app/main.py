@@ -27,6 +27,8 @@ configure_logging("api", settings.log_level, force=True)
 
 
 def _validate_api_key_settings() -> None:
+    if settings.ai_provider.strip().lower() == "openai" and not settings.openai_api_key.strip():
+        raise RuntimeError("OPENAI_API_KEY is required when AI_PROVIDER=openai.")
     if settings.require_api_key and not settings.api_key.strip():
         raise RuntimeError(
             "REQUIRE_API_KEY=true but API_KEY is missing or blank. "

@@ -18,6 +18,7 @@ from packages.shared_db.openai_client import embed_texts
 from packages.shared_db.session import SessionLocal
 from packages.shared_db.settings import settings
 from packages.shared_db.storage import source_path
+from packages.shared_db.url_guard import is_url_safe
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,8 @@ def _fetch_url_text(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
         raise ValueError("Only http/https URLs are supported.")
+    if not is_url_safe(url):
+        raise ValueError("URL is not allowed.")
     response = httpx.get(url, timeout=20.0, follow_redirects=True)
     response.raise_for_status()
     content_type = response.headers.get("content-type", "")
