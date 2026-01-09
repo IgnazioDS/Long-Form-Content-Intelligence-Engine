@@ -23,7 +23,12 @@
    - `API_KEY=...`
    - `DEBUG=false` (debug router is not mounted)
    - `RATE_LIMIT_BACKEND=external` (enforce limits at your ingress)
-3. Build and start the production stack:
+   - `NEXT_PUBLIC_API_BASE_URL=https://<your-domain>/api`
+3. Place TLS certs in `ops/nginx/certs/`:
+   - `ops/nginx/certs/fullchain.pem`
+   - `ops/nginx/certs/privkey.pem`
+   Provision via Let's Encrypt (certbot) or your certificate authority.
+4. Build and start the production stack:
    ```bash
    make build-prod && make up-prod
    ```
@@ -33,8 +38,12 @@ Cloudflare, etc). Configure metrics and tracing explicitly with `METRICS_*` and 
 flags when deploying to production.
 
 Notes:
-- The production image uses a wheel-based install and applies `constraints.txt`. For fully
-  deterministic builds, replace it with a fully resolved lock (pip-tools, uv, poetry).
+- Nginx terminates TLS and proxies `/` to the web app and `/api` to the API. The API and
+  web services are not published directly in production compose.
+- The production image uses a wheel-based install and requires `constraints.lock` for
+  deterministic builds. Regenerate it when dependency versions change.
+- Update `ops/nginx/nginx.conf` `set_real_ip_from` entries to match your ingress/LB
+  networks so rate limiting uses correct client IPs.
 - `docker-compose.prod.yml` runs `alembic upgrade head` in the API command (safe for a
   single replica). For multi-replica deployments, run a one-off migration job instead:
   ```bash

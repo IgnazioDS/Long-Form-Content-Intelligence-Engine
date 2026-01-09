@@ -10,6 +10,14 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Verify dependency lock
+        run: |
+          test -f constraints.lock
+          rg -n "constraints.lock" Dockerfile Dockerfile.prod
+          if rg -n "constraints.txt" Dockerfile Dockerfile.prod; then
+            echo "constraints.txt should not be used in Dockerfiles." >&2
+            exit 1
+          fi
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

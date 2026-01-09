@@ -19,4 +19,4 @@ RUN groupadd -g ${APP_GID} app \
 COPY . /app
 
 RUN pip install --upgrade pip \
-  && pip install -e ".[dev]"
+  && pip install -e ".[dev]" --constraint /app/constraints.lock

@@ -23,6 +23,20 @@ services:
       timeout: 3s
       retries: 5
 
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ops/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ops/nginx/app.conf:/etc/nginx/conf.d/app.conf:ro
+      - ./ops/nginx/certs:/etc/nginx/certs:ro
+
   api:
     image: lfcie-prod
     restart: unless-stopped
@@ -43,8 +57,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "8000:8000"
     volumes:
       - storage_data:/app/storage
     command: >
@@ -57,12 +69,10 @@ services:
       context: ./apps/web
       target: prod
     environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://localhost/api}
       NEXT_PUBLIC_API_KEY: ${NEXT_PUBLIC_API_KEY:-}
     depends_on:
       - api
-    ports:
-      - "3000:3000"
 
   worker:
     image: lfcie-prod
