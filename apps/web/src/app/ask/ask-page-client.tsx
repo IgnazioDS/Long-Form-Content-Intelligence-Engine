@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -24,6 +24,7 @@ import type { QueryMode, QueryResponse, Source } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "lfcie.ask.v0";
+const AUTO_REFRESH_MS = 10_000;
 
 function getStoredPreferences(): { sourceIds: string[]; mode: QueryMode } | null {
   if (typeof window === "undefined") {
@@ -73,6 +74,11 @@ export default function AskPageClient() {
       (source.status || "").toUpperCase().includes("READY")
     );
   }, [sources]);
+  const hasPendingSources = useMemo(() => {
+    return sources.some((source) =>
+      ["UPLOADED", "PROCESSING"].includes((source.status || "").toUpperCase())
+    );
+  }, [sources]);
 
   useEffect(() => {
     const stored = getStoredPreferences();
@@ -86,21 +92,31 @@ export default function AskPageClient() {
     storePreferences(selectedSourceIds, mode);
   }, [selectedSourceIds, mode]);
 
-  useEffect(() => {
-    const fetchSources = async () => {
-      setIsLoading(true);
-      try {
-        const data = await listSources();
-        setSources(data);
-      } catch (err) {
-        toast.error(getErrorMessage(err));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSources();
+  const loadSources = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await listSources();
+      setSources(data);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadSources();
+  }, [loadSources]);
+
+  useEffect(() => {
+    if (!hasPendingSources) {
+      return;
+    }
+    const interval = setInterval(() => {
+      loadSources();
+    }, AUTO_REFRESH_MS);
+    return () => clearInterval(interval);
+  }, [hasPendingSources, loadSources]);
 
   useEffect(() => {
     setSelectedSourceIds((current) =>
@@ -183,6 +199,11 @@ export default function AskPageClient() {
           <p className="text-sm text-muted-foreground">
             Build a query against your READY sources and choose verification mode.
           </p>
+          {hasPendingSources && (
+            <p className="text-xs text-muted-foreground">
+              Auto-refreshing while ingestion is in progress.
+            </p>
+          )}
         </div>
         <Badge className="border border-slate-200 bg-slate-50 text-slate-600">
           Ready sources: {readySources.length}

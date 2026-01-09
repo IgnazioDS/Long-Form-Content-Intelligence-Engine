@@ -43,6 +43,7 @@ const STATUS_STYLES: Record<string, string> = {
   PROCESSING: "border-amber-200 bg-amber-50 text-amber-700",
   UPLOADED: "border-amber-200 bg-amber-50 text-amber-700",
 };
+const AUTO_REFRESH_MS = 10_000;
 
 function formatDate(value?: string) {
   if (!value) {
@@ -53,6 +54,13 @@ function formatDate(value?: string) {
     return "--";
   }
   return date.toLocaleString();
+}
+
+function formatTime(value: Date | null) {
+  if (!value) {
+    return "--";
+  }
+  return value.toLocaleTimeString();
 }
 
 export default function SourcesPage() {
@@ -67,6 +75,7 @@ export default function SourcesPage() {
   const [ingestUrl, setIngestUrl] = useState("");
   const [isIngesting, setIsIngesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Source | null>(null);
 
   const loadSources = useCallback(async () => {
@@ -75,6 +84,7 @@ export default function SourcesPage() {
       const data = await listSources();
       setSources(data);
       setError(null);
+      setLastUpdated(new Date());
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
@@ -87,6 +97,20 @@ export default function SourcesPage() {
   useEffect(() => {
     loadSources();
   }, [loadSources]);
+
+  const hasPendingSources = sources.some((source) =>
+    ["UPLOADED", "PROCESSING"].includes((source.status || "").toUpperCase())
+  );
+
+  useEffect(() => {
+    if (!hasPendingSources && !isUploading && !isIngesting) {
+      return;
+    }
+    const interval = setInterval(() => {
+      loadSources();
+    }, AUTO_REFRESH_MS);
+    return () => clearInterval(interval);
+  }, [hasPendingSources, isUploading, isIngesting, loadSources]);
 
   const handleUpload = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -264,9 +288,16 @@ export default function SourcesPage() {
       <Card className="border-border/60 bg-white/80 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Your sources</CardTitle>
-          <Button variant="outline" size="sm" onClick={loadSources} disabled={isLoading}>
-            Refresh
-          </Button>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {hasPendingSources ? (
+              <span>Auto-refreshing every 10s</span>
+            ) : (
+              <span>Last updated {formatTime(lastUpdated)}</span>
+            )}
+            <Button variant="outline" size="sm" onClick={loadSources} disabled={isLoading}>
+              Refresh
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {error && (
