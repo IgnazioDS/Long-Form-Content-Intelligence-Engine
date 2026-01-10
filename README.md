@@ -28,6 +28,7 @@
    - `DEBUG=false` (debug router is not mounted)
    - `RATE_LIMIT_BACKEND=external` (enforce limits at your ingress)
    - `NEXT_PUBLIC_API_BASE_URL=https://<your-domain>/api`
+   - `NEXT_PUBLIC_API_KEY=...` (if using the web UI and you want it preconfigured)
 3. Place TLS certs in `ops/nginx/certs/`:
    - `ops/nginx/certs/fullchain.pem`
    - `ops/nginx/certs/privkey.pem`
@@ -78,6 +79,7 @@ Notes:
 - `API_KEY` (if set, send `X-API-Key` on requests; required in production if `REQUIRE_API_KEY=true`)
 - `REQUIRE_API_KEY` (default: `false`; set `true` in production to require `API_KEY` at startup)
 - `RATE_LIMIT_BACKEND` (`memory` or `external`, default: `memory`; use `external` in production)
+- `NEXT_PUBLIC_API_KEY` (preconfigures the web UI API key)
 - `RATE_LIMIT_RPS` (default: `0`, disabled when `0`; use only with `RATE_LIMIT_BACKEND=memory`)
 - `RATE_LIMIT_BURST` (default: `0`; use only with `RATE_LIMIT_BACKEND=memory`)
 - `MMR_ENABLED` (default: `true`)
@@ -134,6 +136,7 @@ intended for dev or single-worker use only.
 - `RATE_LIMIT_BACKEND=external` and gateway/ingress rate limiting configured
 - `RETENTION_ENABLED=true` with retention windows set for `RETENTION_DAYS_*`
 - `make migrate-prod` run before scaling API replicas
+- `NEXT_PUBLIC_API_KEY` set (or configured via the web UI settings drawer)
 - Backups enabled via the compose `backup` profile (see below)
 
 ## Retention & Backups (Production)
